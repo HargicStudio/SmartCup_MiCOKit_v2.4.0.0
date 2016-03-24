@@ -404,6 +404,22 @@ static void SaveObjectModelDefaultParameter()
         SetScheduleSelTrack(index, 0);
     }
 
+    // to take effect of default setting
+    IsLedConfChanged();
+    IsNoDisturbingTimeChanged();
+    for(index = 0; index < MAX_DEPTH_PICKUP; index++) {
+        IsPickupChanged(index);
+    }
+    for(index = 0; index < MAX_DEPTH_PUTDOWN; index++) {
+        IsPutdownChanged(index);
+    }
+    for(index = 0; index < MAX_DEPTH_IMMEDIATE; index++) {
+        IsImmediateChanged(index);
+    }
+    for(index = 0; index < MAX_DEPTH_SCHEDULE; index++) {
+        IsScheduleChanged(index);
+    }
+
     OMFactorySave();
 }
 

@@ -21,28 +21,33 @@
 
 #include "mico.h"
 #include "MicoFogCloud.h"
-#include "json_c/json.h"
-#include "P9813/hsb2rgb_led.h"
-
+#include "If_MO.h"
+#include "SendJson.h"
+#include "user_debug.h"
+#include "led.h"
+#include "OMFactory.h"
+#include "MusicMonitor.h"
 
 /* User defined debug log functions
  * Add your own tag like: 'USER_DOWNSTREAM', the tag will be added at the beginning of a log
  * in MICO debug uart, when you call this function.
  */
-#define user_log(M, ...) custom_log("USER_DOWNSTREAM", M, ##__VA_ARGS__)
-#define user_log_trace() custom_log_trace("USER_DOWNSTREAM")
+#ifdef DEBUG
+  #define user_log(M, ...) custom_log("USER_DOWNSTREAM", M, ##__VA_ARGS__)
+  #define user_log_trace() custom_log_trace("USER_DOWNSTREAM")
+#else
+#ifdef USER_DEBUG
+  #define user_log(M, ...) user_debug("USER_DOWNSTREAM", M, ##__VA_ARGS__)
+  #define user_log_trace() (void)0
+#endif
+#endif
 
 
-// device state on/off
-extern volatile bool  device_switch;  // device state true: on , false: off
-extern volatile bool device_switch_changed;  // device state changed flag
+extern SDevice gDevice;
 
-extern bool rgbled_switch;
-extern int rgbled_hues;
-extern int rgbled_saturation;
-extern int rgbled_brightness;
+static bool ParseOMfromCloud(app_context_t *app_context, const char* string);
+bool IsParameterChanged();
 
-extern volatile bool rgbled_changed;  // rgb led state changed flag
 
 /* Handle user message from cloud
  * Receive msg from cloud && do hardware operation, like rgbled
@@ -53,25 +58,24 @@ void user_downstream_thread(void* arg)
   OSStatus err = kUnknownErr;
   app_context_t *app_context = (app_context_t *)arg;
   fogcloud_msg_t *recv_msg = NULL;
-  json_object *recv_json_object = NULL;
-  
-  bool device_switch_tmp = true;
-    
+      
   require(app_context, exit);
   
   /* thread loop to handle cloud message */
   while(1){
-    mico_thread_msleep(200);
+    mico_thread_sleep(1);
         
     // check fogcloud connect status
     if(!app_context->appStatus.fogcloudStatus.isCloudConnected){
+      user_log("[ERR]user_downstream_thread: cloud disconnected");
+      mico_thread_sleep(2);
       continue;
     }
     
     /* get a msg pointer, points to the memory of a msg: 
      * msg data format: recv_msg->data = <topic><data>
      */
-    err = MiCOFogCloudMsgRecv(app_context, &recv_msg, 100);
+    err = MiCOFogCloudMsgRecv(app_context, &recv_msg, 1000);
     if(kNoErr == err){
       // debug log in MICO dubug uart
       user_log("Cloud => Module: topic[%d]=[%.*s]\tdata[%d]=[%.*s]", 
@@ -79,38 +83,9 @@ void user_downstream_thread(void* arg)
                recv_msg->data_len, recv_msg->data_len, recv_msg->data + recv_msg->topic_len);
       
       // parse json data from the msg, get led control value
-      recv_json_object = json_tokener_parse((const char*)(recv_msg->data + recv_msg->topic_len));
-      if (NULL != recv_json_object){
-        json_object_object_foreach(recv_json_object, key, val) {
-          if(!strcmp(key, "rgbled_switch")){
-            rgbled_switch = json_object_get_boolean(val);
-            rgbled_changed = true;
-          }
-          else if(!strcmp(key, "rgbled_hues")){
-            rgbled_hues = json_object_get_int(val);
-            rgbled_changed = true;
-          }
-          else if(!strcmp(key, "rgbled_saturation")){
-            rgbled_saturation = json_object_get_int(val);
-            rgbled_changed = true;
-          }
-          else if(!strcmp(key, "rgbled_brightness")){
-            rgbled_brightness = json_object_get_int(val);
-            rgbled_changed = true;
-          }
-          else if(!strcmp(key, "device_switch")){
-            device_switch_tmp = json_object_get_boolean(val);
-            if(device_switch_tmp != device_switch){  // device on/off state changed
-              device_switch_changed = true;
-              device_switch = device_switch_tmp;
-            }
-          }
-          else{}
-        }
-        
-        // free memory of json object
-        json_object_put(recv_json_object);
-        recv_json_object = NULL;
+      if(NULL != recv_msg) {
+        ParseOMfromCloud(app_context, (const char*)(recv_msg->data + recv_msg->topic_len));
+        IsParameterChanged();
       }
       
       // NOTE: must free msg memory after been used.
@@ -124,3 +99,338 @@ void user_downstream_thread(void* arg)
 exit:
   user_log("ERROR: user_downstream_thread exit with err=%d", err);
 }
+
+static bool ParseOMfromCloud(app_context_t *app_context, const char* string)
+{
+    bool ret = false;
+    json_object *get_json_object = NULL;
+    char om_string[64];
+    u8 index;
+    
+    get_json_object = json_tokener_parse(string);
+    if (NULL != get_json_object){
+        json_object_object_foreach(get_json_object, key, val) {
+            // parse
+            if(strcmp(key, "DEVICE-1/TempSwitch") == 0) {
+                SetTempSwitch(json_object_get_boolean(val));
+            }
+            else if(strcmp(key, "DEVICE-1/GetTempSwitch") == 0) {
+                if(json_object_get_boolean(val) == true) {
+                    SendJsonBool(app_context, "DEVICE-1/TempSwitch", GetTempSwitch());
+                }
+            }
+            else if(strcmp(key, "DEVICE-1/PowerOnDisplay") == 0) {
+                SetPowerOnDisplay(json_object_get_boolean(val));
+            }
+            else if(strcmp(key, "DEVICE-1/GetPowerOnDisplay") == 0) {
+                if(json_object_get_boolean(val) == true) {
+                    SendJsonBool(app_context, "DEVICE-1/PowerOnDisplay", GetPowerOnDisplay());
+                }
+            }
+            else if(strcmp(key, "LIGHTS-1/EnableNotifyLight") == 0) {
+                SetEnableNotifyLight(json_object_get_boolean(val));
+
+                // if disable notify light, close current light first
+                if(json_object_get_boolean(val) == false) {
+                    LedPwmStop();
+                }
+            }
+            else if(strcmp(key, "LIGHTS-1/GetEnableNotifyLight") == 0) {
+                if(json_object_get_boolean(val) == true) {
+                    SendJsonBool(app_context, "LIGHTS-1/EnableNotifyLight", GetEnableNotifyLight());
+                }
+            }
+            else if(strcmp(key, "LIGHTS-1/LedSwitch") == 0) {
+                SetLedSwitch(json_object_get_boolean(val));
+            }
+            else if(strcmp(key, "LIGHTS-1/GetLedSwitch") == 0) {
+                if(json_object_get_boolean(val) == true) {
+                    SendJsonBool(app_context, "DEVICE-1/LedSwitch", GetLedSwitch());
+                }
+            }
+            else if(strcmp(key, "LIGHTS-1/LedConfRed") == 0) {
+                SetRedConf(json_object_get_int(val));
+            }
+            else if(strcmp(key, "LIGHTS-1/LedConfGreen") == 0) {
+                SetGreenConf(json_object_get_int(val));
+            }
+            else if(strcmp(key, "LIGHTS-1/LedConfBlue") == 0) {
+                SetBlueConf(json_object_get_int(val));
+            }
+            else if(strcmp(key, "LIGHTS-1/GetLedConf") == 0) {
+                if(json_object_get_boolean(val) == true) {
+                    SendJsonLedConf(app_context);
+                }
+            }
+            else if(strcmp(key, "MUSIC-1/Volume") == 0) {
+                SetVolume(json_object_get_int(val));
+                user_log("[DBG]ParseOMfromCloud: get volume %d, playing song", GetVolume());
+            }
+            else if(strcmp(key, "MUSIC-1/GetVolume") == 0) {
+                if(json_object_get_boolean(val) == true) {
+                    SendJsonInt(app_context, "MUSIC-1/Volume", GetVolume());
+                }
+            }
+            else if(strcmp(key, "MUSIC-1/Urlpath") == 0) {
+                user_log("[WRN]ParseOMfromCloud: receive %s, download has not support yet", json_object_get_string(val));
+                // TODO: will trigger download music through http
+            }
+            else if(strcmp(key, "MUSIC-1/GetTrackList") == 0) {
+                if(json_object_get_boolean(val) == true) {
+                    user_log("[DBG]ParseOMfromCloud: will upload all track information here");
+                    // TODO: will trigger upload all track info.
+                }
+            }
+            else if(strcmp(key, "MUSIC-1/DelTrack") == 0) {
+                user_log("[DBG]ParseOMfromCloud: will delete track(%d) here", json_object_get_int(val));
+                // TODO: will delete the track
+            }
+            else if(strcmp(key, "HEALTH-1/IfNoDisturbing") == 0) {
+                SetIfNoDisturbing(json_object_get_boolean(val));
+            }
+            else if(strcmp(key, "HEALTH-1/NoDisturbingStartHour") == 0) {
+                SetNoDisturbingStartHour(json_object_get_int(val));
+            }
+            else if(strcmp(key, "HEALTH-1/NoDisturbingEndHour") == 0) {
+                SetNoDisturbingEndHour(json_object_get_int(val));
+            }
+            else if(strcmp(key, "HEALTH-1/NoDisturbingStartMinute") == 0) {
+                SetNoDisturbingStartMinute(json_object_get_int(val));
+            }
+            else if(strcmp(key, "HEALTH-1/NoDisturbingEndMinute") == 0) {
+                SetNoDisturbingEndMinute(json_object_get_int(val));
+            }
+            else if(strncmp(key, "HEALTH-1/PICKUP", strlen("HEALTH-1/PICKUP")) == 0) {
+                for(index = 0; index < MAX_DEPTH_PICKUP; index++) {
+                    sprintf(om_string, "HEALTH-1/PICKUP-%d/Enable\0", index + 1);
+                    if(strncmp(key, om_string, strlen(om_string)) == 0) {
+                        SetPickUpEnable(index, json_object_get_boolean(val));
+                        break;
+                    }
+
+                    sprintf(om_string, "HEALTH-1/PICKUP-%d/SelTrack\0", index + 1);
+                    if(strncmp(key, om_string, strlen(om_string)) == 0) {
+                        SetPickUpSelTrack(index, json_object_get_int(val));
+                        break;
+                    }
+                }
+            }
+            else if(strncmp(key, "HEALTH-1/PUTDOWN", strlen("HEALTH-1/PUTDOWN")) == 0) {
+                for(index = 0; index < MAX_DEPTH_PUTDOWN; index++) {
+                    sprintf(om_string, "HEALTH-1/PUTDOWN-%d/Enable\0", index + 1);
+                    if(strncmp(key, om_string, strlen(om_string)) == 0) {
+                        SetPutDownEnable(index, json_object_get_boolean(val));
+                        break;
+                    }
+
+                    sprintf(om_string, "HEALTH-1/PUTDOWN-%d/RemindDelay\0", index + 1);
+                    if(strncmp(key, om_string, strlen(om_string)) == 0) {
+                        SetPutDownRemindDelay(index, json_object_get_int(val));
+                        break;
+                    }
+
+                    sprintf(om_string, "HEALTH-1/PUTDOWN-%d/SelTrack\0", index + 1);
+                    if(strncmp(key, om_string, strlen(om_string)) == 0) {
+                        SetPutDownSelTrack(index, json_object_get_int(val));
+                        break;
+                    }
+                }
+            }
+            else if(strncmp(key, "HEALTH-1/IMMEDIATE", strlen("HEALTH-1/IMMEDIATE")) == 0) {
+                for(index = 0; index < MAX_DEPTH_IMMEDIATE; index++) {
+                    sprintf(om_string, "HEALTH-1/IMMEDIATE-%d/Enable\0", index + 1);
+                    if(strncmp(key, om_string, strlen(om_string)) == 0) {
+                        SetImmediateEnable(index, json_object_get_boolean(val));
+                        break;
+                    }
+
+                    sprintf(om_string, "HEALTH-1/IMMEDIATE-%d/SelTrack\0", index + 1);
+                    if(strncmp(key, om_string, strlen(om_string)) == 0) {
+                        SetImmediateSelTrack(index, json_object_get_int(val));
+                        break;
+                    }
+                }
+            }
+            else if(strncmp(key, "HEALTH-1/SCHEDULE", strlen("HEALTH-1/SCHEDULE")) == 0) {
+                for(index = 0; index < MAX_DEPTH_SCHEDULE; index++) {
+                    sprintf(om_string, "HEALTH-1/SCHEDULE-%d/Enable\0", index + 1);
+                    if(strncmp(key, om_string, strlen(om_string)) == 0) {
+                        SetScheduleEnable(index, json_object_get_boolean(val));
+                        break;
+                    }
+
+                    sprintf(om_string, "HEALTH-1/SCHEDULE-%d/RemindHour\0", index + 1);
+                    if(strncmp(key, om_string, strlen(om_string)) == 0) {
+                        SetScheduleRemindHour(index, json_object_get_int(val));
+                        break;
+                    }
+
+                    sprintf(om_string, "HEALTH-1/SCHEDULE-%d/RemindMinute\0", index + 1);
+                    if(strncmp(key, om_string, strlen(om_string)) == 0) {
+                        SetScheduleRemindMinute(index, json_object_get_int(val));
+                        break;
+                    }
+
+                    sprintf(om_string, "HEALTH-1/SCHEDULE-%d/RemindTimes\0", index + 1);
+                    if(strncmp(key, om_string, strlen(om_string)) == 0) {
+                        SetScheduleRemindTimes(index, json_object_get_int(val));
+                        break;
+                    }
+
+                    sprintf(om_string, "HEALTH-1/SCHEDULE-%d/SelTrack\0", index + 1);
+                    if(strncmp(key, om_string, strlen(om_string)) == 0) {
+                        SetScheduleSelTrack(index, json_object_get_int(val));
+                        break;
+                    }
+                }
+            }
+            
+#if 0
+            // for echo debug
+            else if(strcmp(key, "DEVICE-1/Power") == 0){
+                SetPower(json_object_get_int(val));
+            }
+            else if(strcmp(key, "DEVICE-1/LowPowerAlarm") == 0) {
+                SetLowPowerAlarm(json_object_get_boolean(val));
+            }
+            else if(strcmp(key, "DEVICE-1/SignalStrength") == 0) {
+                SetSignalStrengh(json_object_get_int(val));
+            }
+            else if(strcmp(key, "DEVICE-1/Temperature") == 0) {
+                SetTemperature(json_object_get_double(val));
+            }
+            else if(strcmp(key, "DEVICE-1/TFStatus") == 0) {
+                SetTFStatus(json_object_get_boolean(val));
+            }
+            else if(strcmp(key, "DEVICE-1/TFCapacity") == 0) {
+                SetTFCapacity(json_object_get_double(val));
+            }
+            else if(strcmp(key, "DEVICE-1/TFFree") == 0) {
+                SetTFFree(json_object_get_double(val));
+            }
+            else if(strcmp(key, "MUSIC-1/TrackNumber") == 0) {
+                SendJsonInt(app_context, "MUSIC-1/TrackNumber", json_object_get_int(val));
+            }
+            else if(strcmp(key, "MUSIC-1/DownLoadRate") == 0) {
+                SetDownLoadRate(json_object_get_int(val));
+            }
+            else if(strcmp(key, "HEALTH-1/DrinkStamp") == 0) {
+                SetDrinkStamp(json_object_get_boolean(val));
+            }
+            else if(strcmp(key, "HEALTH-1/PutDownStamp") == 0) {
+                SetPutDownStamp(json_object_get_boolean(val));
+            }
+#endif
+        }
+
+        // free memory of json object
+        json_object_put(get_json_object);
+        get_json_object = NULL;
+
+        ret = true;
+        user_log("[DBG]ParseOMfromCloud: parse json object success");
+    }
+    else {
+        user_log("[ERR]ParseOMfromCloud: parse json object error");
+    }
+
+    return ret;
+}
+
+bool IsParameterChanged()
+{
+    bool set_action = false;
+    u8 index;
+
+    if(IsTempSwitchChanged()) {
+        set_action = true;
+        user_log("[DBG]IsParameterChanged: TempSwitch change to %s", GetTempSwitch() ? "true" : "false");
+    }
+    if(IsPowerOnDisplayChanged()) {
+        set_action = true;
+        user_log("[DBG]IsParameterChanged: PowerOnDisplay change to %s", GetPowerOnDisplay() ? "true" : "false");
+    }
+    if(IsEnableNotifyLightChanged()) {
+        set_action = true;
+        user_log("[DBG]IsParameterChanged: EnableNotifyLight change to %s", GetEnableNotifyLight() ? "true" : "false");
+    }
+    if(IsLedSwitchChanged()) {
+        set_action = true;
+        user_log("[DBG]IsParameterChanged: LedSwitch change %s", GetLedSwitch() ? "true" : "false");
+    }
+    if(IsLedConfChanged()) {
+        set_action = true;
+        user_log("[DBG]IsParameterChanged: LedConf change R:%d G:%d B:%d", GetRedConf(), GetGreenConf(), GetBlueConf());
+        if(GetLedSwitch()) {
+            LedDutyInit((float)GetRedConf(), (float)GetGreenConf(), (float)GetBlueConf());
+            LedPwmStart();
+            user_log("[DBG]IsParameterChanged: set LedConf R:%d G:%d B:%d", GetRedConf(), GetGreenConf(), GetBlueConf());
+        }
+    }
+    if(IsVolumeChanged()) {
+        set_action = true;
+        // TODO: get volume from 411 through spi
+        user_log("[DBG]IsParameterChanged: Music volume feature in developing");
+//        user_log("[DBG]IsParameterChanged: Volume change %d", GetVolume());
+    }
+    if(IsIfNoDisturbingChanged()) {
+        set_action = true;
+        user_log("[DBG]IsParameterChanged: IfNoDisturbing change %s", GetIfNoDisturbing() ? "true" : "false");
+    }
+    if(IsNoDisturbingTimeChanged()) {
+        set_action = true;
+        user_log("[DBG]IsParameterChanged: NoDisturbingTime change %2d:%2d - %2d:%2d", 
+                GetNoDisturbingStartHour(),
+                GetNoDisturbingStartMinute(),
+                GetNoDisturbingEndHour(),
+                GetNoDisturbingEndMinute());
+    }
+    for(index = 0; index < MAX_DEPTH_PICKUP; index++) {
+        if(IsPickupChanged(index)) {
+            set_action = true;
+            user_log("[DBG]IsParameterChanged: Pickup[%d] change Enable:%s SelTrack:%d", 
+                    index, 
+                    GetPickUpEnable(index) ? "true" : "false", 
+                    GetPickUpSelTrack(index));
+        }
+    }
+    for(index = 0; index < MAX_DEPTH_PUTDOWN; index++) {
+        if(IsPutdownChanged(index)) {
+            set_action = true;
+            user_log("[DBG]IsParameterChanged: Putdown[%d] change Enable:%s RemindDelay:%d SelTrack:%d",
+                    index,
+                    GetPutDownEnable(index) ? "true" : "false",
+                    GetPutDownRemindDelay(index),
+                    GetPutDownSelTrack(index));
+        }
+    }
+    for(index = 0; index < MAX_DEPTH_IMMEDIATE; index++) {
+        if(IsImmediateChanged(index)) {
+            set_action = true;
+            user_log("[DBG]IsParameterChanged: Immediate[%d] change Enable:%s SelTrack:%d",
+                    index,
+                    GetImmediateEnable(index) ? "true" : "false",
+                    GetImmediateSelTrack(index));
+        }
+    }
+    for(index = 0; index < MAX_DEPTH_SCHEDULE; index++) {
+        if(IsScheduleChanged(index)) {
+            set_action = true;
+            user_log("[DBG]IsParameterChanged: Schedule[%d] change Enable:%s Remind %2d:%2d RemindTimes:%d SelTrack:%d",
+                    index,
+                    GetScheduleEnable(index) ? "true" : "false",
+                    GetScheduleRemindHour(index),
+                    GetScheduleRemindMinute(index),
+                    GetScheduleRemindTimes(index),
+                    GetScheduleSelTrack(index));
+        }
+    }
+
+    if(set_action) {
+        OMFactorySave();
+    }
+
+    return set_action;
+}
+
+

@@ -30,6 +30,11 @@
 #include "temperature.h"
 #include "battery.h"
 #include "If_MO.h"
+#include "DeviceMonitor.h"
+#include "HealthMonitor.h"
+#include "LightsMonitor.h"
+
+
 
 /* User defined debug log functions
  * Add your own tag like: 'USER', the tag will be added at the beginning of a log
@@ -80,7 +85,7 @@ OSStatus user_main( app_context_t * const app_context )
   DeviceInit(app_context);
   HealthInit(app_context);
   LightsInit();
-  MusicInit();
+//  MusicInit();
 
   user_log("[DBG]net_main: Appilcation Initialize success");
   
@@ -93,16 +98,8 @@ OSStatus user_main( app_context_t * const app_context )
   
   // user_main loop, update oled display every 1s
   while(1){
-//    mico_thread_sleep(MICO_WAIT_FOREVER);
-    mico_thread_sleep(2);
-
-    if(TMP75ReadTemperature(&temperature) != false) {
-        user_log("[DBG]net_main: get temperature %f success", temperature);
-    }
-
-    if(GetBatteryVoltage(&battery) != false) {
-        user_log("[DBG]net_main: get battery %f success", battery);
-    }
+    mico_thread_sleep(MICO_WAIT_FOREVER);
+//    mico_thread_sleep(2);
   }
 
 exit:

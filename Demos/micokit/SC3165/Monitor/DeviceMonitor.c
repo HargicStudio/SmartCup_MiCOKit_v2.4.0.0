@@ -12,10 +12,11 @@ History:
 #include "DeviceMonitor.h"
 #include "mico.h"
 #include "If_MO.h"
-#include "mp3.h"
 #include "TimeUtils.h"
 #include "SendJson.h"
 #include "user_debug.h"
+#include "battery.h"
+#include "temperature.h"
 
 
 #ifdef DEBUG
@@ -35,7 +36,6 @@ mico_timer_t timer_device_notify;
 static void DeviceEstimator(void* arg);
 static void MOChangedNotification(app_context_t *app_context);
 static void PowerNotification();
-static void LowPowerAlarmNotification();
 static void SignalStrengthNotification();
 static void TemperatureNotification();
 static void TFCardNotification();
@@ -76,8 +76,8 @@ static void DeviceEstimator(void* arg)
     }
     
     PowerNotification();
-    LowPowerAlarmNotification();
     SignalStrengthNotification();
+    TemperatureNotification();
     TFCardNotification();
 
     MOChangedNotification(app_context);
@@ -119,17 +119,38 @@ static void MOChangedNotification(app_context_t *app_context)
     }while(ret);
 }
 
-static void PowerNotification()
-{
-    SetPower(100);
-}
-
 
 #define LOW_POWER_LIMIT     15
 
-static void LowPowerAlarmNotification()
+static void PowerNotification()
 {
-    SetLowPowerAlarm( GetPower() < LOW_POWER_LIMIT ? true : false );
+    float voltage;
+
+    if(GetBatteryVoltage(&voltage) != true) {
+        user_log("[ERR]PowerNotification: get battery voltage failed");
+        return ;
+    }
+
+    voltage *= 100;
+    
+    if(voltage < BATTERY_VOLTAGE_LOW) {
+        user_log("[WRN]PowerNotification: battery voltage below the lowest");
+        SetPower(0);
+        return ;
+    }
+    else if(voltage > BATTERY_VOLTAGE_HIGH) {
+        user_log("[WRN]PowerNotification: battery voltage is full");
+        SetPower(100);
+        return ;
+    }
+    else {
+        int percent = (int)((voltage - BATTERY_VOLTAGE_LOW)*100.0/(BATTERY_VOLTAGE_HIGH - BATTERY_VOLTAGE_LOW));
+        SetPower(percent);
+        user_log("[DBG]PowerNotification: current power percent %d", percent);
+    }
+
+    SetLowPowerAlarm( GetPower() <= LOW_POWER_LIMIT ? true : false );
+    user_log("[DBG]PowerNotification: current power alarm %s", GetLowPowerAlarm() ? "true" : "false");
 }
 
 static void SignalStrengthNotification()
@@ -149,23 +170,21 @@ static void SignalStrengthNotification()
 
 static void TemperatureNotification()
 {
-    
+    // TODO: will support in Release Version 2
+    float temp;
+
+    if(TMP75ReadTemperature(&temp) == true) {
+        user_log("[DBG]TemperatureNotification: current temperature %f", temp);
+    }
+    else {
+        user_log("[ERR]TemperatureNotification: get temperature failed");
+    }
 }
 
 static void TFCardNotification()
 {
-    SD_sizeInfo sdSizeInfo;
-    
-    if(MP3_sdCardDetect() != 0) {
-        SetTFStatus(true);
-        MP3_getSdSize(&sdSizeInfo);
-        
-        SetTFCapacity(sdSizeInfo.totalSize);
-        SetTFFree(sdSizeInfo.availableSize);
-    }
-    else {
-        SetTFStatus(false);
-    }
+    // TODO: ask from 411 through spi
+    user_log("[DBG]TFCardNotification: get TF card status feature in developing");
 }
 
 

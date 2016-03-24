@@ -122,6 +122,27 @@
       </file>
     </group>
     <group>
+      <name>Monitor</name>
+      <file>
+        <name>$PROJ_DIR$\..\..\..\..\..\Demos\micokit\SC3165\Monitor\DeviceMonitor.c</name>
+      </file>
+      <file>
+        <name>$PROJ_DIR$\..\..\..\..\..\Demos\micokit\SC3165\Monitor\HealthMonitor.c</name>
+      </file>
+      <file>
+        <name>$PROJ_DIR$\..\..\..\..\..\Demos\micokit\SC3165\Monitor\LightsMonitor.c</name>
+      </file>
+    </group>
+    <group>
+      <name>OMFactory</name>
+      <file>
+        <name>$PROJ_DIR$\..\..\..\..\..\Demos\micokit\SC3165\Factory\If_MO.c</name>
+      </file>
+      <file>
+        <name>$PROJ_DIR$\..\..\..\..\..\Demos\micokit\SC3165\Factory\OMFactory.c</name>
+      </file>
+    </group>
+    <group>
       <name>User</name>
       <file>
         <name>$PROJ_DIR$\..\..\..\..\..\Demos\micokit\SC3165\User\battery.c</name>
@@ -136,6 +157,9 @@
         <name>$PROJ_DIR$\..\..\..\..\..\Demos\micokit\SC3165\User\outTrigger.c</name>
       </file>
       <file>
+        <name>$PROJ_DIR$\..\..\..\..\..\Demos\micokit\SC3165\User\SendJson.c</name>
+      </file>
+      <file>
         <name>$PROJ_DIR$\..\..\..\..\..\Demos\micokit\SC3165\User\temperature.c</name>
       </file>
       <file>
@@ -146,9 +170,6 @@
       </file>
       <file>
         <name>$PROJ_DIR$\..\..\..\..\..\Demos\micokit\SC3165\User\user_main.c</name>
-      </file>
-      <file>
-        <name>$PROJ_DIR$\..\..\..\..\..\Demos\micokit\SC3165\User\user_upstream.c</name>
       </file>
     </group>
   </group>
@@ -269,6 +290,9 @@
       </file>
       <file>
         <name>$PROJ_DIR$\..\..\..\..\..\libraries\utilities\StringUtils.c</name>
+      </file>
+      <file>
+        <name>$PROJ_DIR$\..\..\..\..\..\libraries\utilities\TimeUtils.c</name>
       </file>
       <file>
         <name>$PROJ_DIR$\..\..\..\..\..\libraries\utilities\URLUtils.c</name>

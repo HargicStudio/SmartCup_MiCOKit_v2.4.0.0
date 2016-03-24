@@ -24,7 +24,7 @@ History:
 #endif
 #endif
 
-#define MAX_LIGHT   60
+#define MAX_LIGHT   80
 
 #define STACK_SIZE_LIGHTS_THREAD    0x400
 
@@ -59,8 +59,8 @@ static void lights_thread(void* arg)
     static u8 led[3];
     static u8 countup_led, countdown_led;
 
-    LED_openRGB(0, 0, 0); //初始化关闭所有灯
-    LED_closeRGB();
+    // close all led when startup
+    LedPwmStop();
 
     led[0] = MAX_LIGHT;
     led[1] = 0;
@@ -72,8 +72,8 @@ static void lights_thread(void* arg)
     while(1){
         
         if(GetEnableNotifyLight()) {
-            // TODO: LED cycle breath
-            LED_openRGB(led[0], led[1], led[2]);
+            LedDutyInit((float)led[0], (float)led[1], (float)led[2]);
+            LedPwmStart();
             user_log("[DBG]lights_thread: R(%d) G(%d) B(%d)", led[0], led[1], led[2]);
 
             // type2
@@ -92,14 +92,21 @@ static void lights_thread(void* arg)
             led[countdown_led]--;
             led[countup_led] = MAX_LIGHT - led[countdown_led];
 
-            mico_thread_msleep(100);
+            // stay in this colour for a while
+            if(countup_led % 20 == 0) {
+                mico_thread_msleep(400);
+            }
+            else {
+                mico_thread_msleep(100);
+            }
         }
         else {
             if(GetLedSwitch()) {
-                LED_openRGB(GetRedConf(), GetGreenConf(), GetBlueConf());
+                LedDutyInit((float)GetRedConf(), (float)GetGreenConf(), (float)GetBlueConf());
+                LedPwmStart();
             }
             else {
-                LED_openRGB(0, 0, 0);
+                LedPwmStop();
             }
 
             mico_thread_sleep(2);

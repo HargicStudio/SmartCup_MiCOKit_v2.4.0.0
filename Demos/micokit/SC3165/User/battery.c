@@ -55,7 +55,7 @@ bool BatteryRead(uint16_t *data)
   // get ADC data
   err = MicoAdcTakeSample(BATTERY_ADC, data);
   if(kNoErr == err){
-    user_log("[DBG]BatteryRead: MicoAdcTakeSample success with sample %d", *data);
+//    user_log("[DBG]BatteryRead: MicoAdcTakeSample success with sample %d", *data);
     ret = true;   // get data succeed
   }
   else{
@@ -75,7 +75,7 @@ bool GetBatteryVoltage(float* voltage)
     }
 
     *voltage = 3.3 * adc_data / (4096 >> 1);
-    user_log("[DBG]GetBatteryVoltage: get battery(%f) success", *voltage);
+//    user_log("[DBG]GetBatteryVoltage: get battery(%f) success", *voltage);
 
     return true;
 }

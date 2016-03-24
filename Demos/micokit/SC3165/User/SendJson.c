@@ -13,8 +13,8 @@ History:
 #include "SendJson.h"
 #include "If_MO.h"
 #include "user_debug.h"
-#include "ffconf.h"
-#include "mp3.h"
+//#include "ffconf.h"
+//#include "mp3.h"
 
 
 #ifdef DEBUG
@@ -308,6 +308,7 @@ bool SendJsonAppointment(app_context_t *arg)
     return ret;
 }
 
+#if 0
 bool SendJsonTrack(app_context_t *arg)
 {
     bool ret;
@@ -347,7 +348,7 @@ bool SendJsonTrack(app_context_t *arg)
 
     return ret;
 }
-
+#endif
 
 // end of file
 

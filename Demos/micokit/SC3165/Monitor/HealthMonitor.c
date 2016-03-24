@@ -9,15 +9,16 @@ History:
 */
 
 
+#include <time.h>
 #include "HealthMonitor.h"
 #include "mico.h"
 #include "If_MO.h"
-#include "Sntp.h"
+#include "sntp.h"
 #include "MusicMonitor.h"
-#include "key.h"
 #include "TimeUtils.h"
 #include "SendJson.h"
 #include "user_debug.h"
+#include "outTrigger.h"
 
 
 typedef struct SputDownTimer_t {
@@ -74,12 +75,32 @@ static void health_thread(void* arg)
     // avoid compiling warning
     arg = arg;
     user_log_trace();
+
+#if 0
     u8 cup_status_temp, cup_status;
 
     cup_status = cup_status_temp = KEY_getValue();
+#endif
   
     /* thread loop */
     while(1){
+#if 1
+        if(OUTERTRIGGER_PICKUP == GetOuterTriggerStatus()) {
+            SetDrinkStamp(true);
+                
+            if(!NoDisturbing() && IsPickupSetting()) {
+                // TODO: FindPickupTrack() called and send 411 to play track through spi
+                user_log("[DBG]health_thread: track index %d will be played", FindPickupTrack());
+            }
+        }
+        else if(OUTERTRIGGER_PUTDOWN == GetOuterTriggerStatus()) {
+            SetPutDownStamp(true);
+
+            if(!NoDisturbing() && IsPutDownSetting()) {
+                startPutDownTimerGroup();
+            }
+        }
+#elif
         if(mico_rtos_get_semaphore(&semaphore_getup, CHECK_CUPSTATUS_TIMEOUT)) {
             // key fliter
             cup_status_temp = KEY_getValue();
@@ -107,6 +128,7 @@ static void health_thread(void* arg)
                 }
             }
         }
+#endif
     }
 }
 
@@ -119,7 +141,7 @@ OSStatus HealthInit(app_context_t *app_context)
         putdown_timer[idx].index = idx;
     }
 
-    //
+    // check if schedule remind timneout every 1 minute
     for(idx = 0; idx < MAX_DEPTH_SCHEDULE; idx++) {
         schedule_timer[idx].index = idx;
         err = mico_init_timer(&schedule_timer[idx].timer, 60*UpTicksPerSecond(), ScheduleTimeout, &schedule_timer[idx]);
@@ -139,7 +161,8 @@ OSStatus HealthInit(app_context_t *app_context)
         }
     }
 
-    //
+#if 0
+    // initialize if outTrigger is implement by semaphore
     err = mico_rtos_init_semaphore(&semaphore_getup, 1);
     require_noerr_action(err, exit, user_log("[ERR]HealthInit: create semaphore_getup failed"));
     user_log("[DBG]HealthInit: create semaphore_getup success");
@@ -147,6 +170,7 @@ OSStatus HealthInit(app_context_t *app_context)
     err = mico_rtos_init_semaphore(&semaphore_putdown, 1);
     require_noerr_action(err, exit, user_log("[ERR]HealthInit: create semaphore_putdown failed"));
     user_log("[DBG]HealthInit: create semaphore_putdown success");
+#endif
 
     //
     err = mico_init_timer(&timer_health_notify, 2*UpTicksPerSecond(), MOChangedNotification, app_context);
@@ -256,7 +280,8 @@ static void startPutDownTimerGroup()
         }
 
         if(GetPutDownRemindDelay(idx) == 0) {
-            PlayingSong(GetPutDownSelTrack(idx));
+            // TODO: GetPutDownSelTrack(idx) called and send 411 to play track through spi
+            user_log("[DBG]startPutDownTimerGroup: track index %d will be played", GetPutDownSelTrack(idx));
         }
         else {
             // if another putdown action trigger, reset last timers
@@ -282,7 +307,8 @@ static void PutdownTimeout(void* arg)
     
     // if this putdown tag is disable during timer timeout, do not need to play song
     if(GetPutDownEnable(mng->index)) {
-        PlayingSong(GetPutDownSelTrack(mng->index));
+        // TODO: GetPutDownSelTrack(mng->index) called and send 411 to play track through spi
+        user_log("[DBG]PutdownTimeout: track index %d will be played", GetPutDownSelTrack(mng->index));
     }
 }
 
@@ -333,7 +359,8 @@ static void ScheduleTimeout(void* arg)
 
     times = GetScheduleRemindTimes(mng->index);
     while(times--) {
-        PlayingSong(GetScheduleSelTrack(mng->index));
+        // TODO: GetScheduleSelTrack(mng->index) called and send 411 to play track through spi
+        user_log("[DBG]ScheduleTimeout: track index %d will be played %d times", GetScheduleSelTrack(mng->index), times);
     }
 }
 

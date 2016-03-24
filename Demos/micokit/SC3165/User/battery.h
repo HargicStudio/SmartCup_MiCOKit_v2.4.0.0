@@ -20,6 +20,11 @@ History:
 #include "mico.h"
 
 
+// Battery voltage range
+// unit: 10mV
+#define BATTERY_VOLTAGE_LOW     (250.0f)
+#define BATTERY_VOLTAGE_HIGH    (425.0f)
+
 
 bool BatteryInit(void);
 bool GetBatteryVoltage(float* voltage);

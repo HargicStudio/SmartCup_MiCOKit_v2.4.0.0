@@ -56,7 +56,7 @@
 /* Firmware update check
  * If need to check new firmware on server after wifi on, comment out this macro
  */
-#define DISABLE_FOGCLOUD_OTA_CHECK
+//#define DISABLE_FOGCLOUD_OTA_CHECK
 
 
 /*******************************************************************************

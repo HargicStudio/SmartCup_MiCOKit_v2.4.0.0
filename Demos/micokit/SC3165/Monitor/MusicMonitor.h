@@ -18,7 +18,6 @@ History:
 #include "Object_int.h"
 #include "stdbool.h"
 #include "mico.h"
-#include "mp3.h"
 
 
 OSStatus MusicInit();

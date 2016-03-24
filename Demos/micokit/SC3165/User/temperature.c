@@ -168,7 +168,7 @@ bool TMP75ReadTemperature(float* temperature)
         return ret;
     }
 
-    user_log("[DBG]TMP75ReadTemperature: get temperature reg byte1(0x%02x) byte2(0x%02x) successful", temp[0], temp[1]);
+//    user_log("[DBG]TMP75ReadTemperature: get temperature reg byte1(0x%02x) byte2(0x%02x) successful", temp[0], temp[1]);
 
     *temperature = 0;
     *temperature += temp[0];
