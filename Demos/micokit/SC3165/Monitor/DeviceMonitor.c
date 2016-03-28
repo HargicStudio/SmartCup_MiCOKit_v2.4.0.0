@@ -36,6 +36,9 @@ mico_timer_t timer_device_notify;
 static void DeviceEstimator(void* arg);
 static void MOChangedNotification(app_context_t *app_context);
 static void PowerNotification();
+static bool PushIntoQueue(float* voltage, uint16_t deepth, uint16_t index, float data);
+static float GetQueueAverage(float* voltage, uint16_t deepth);
+static void PrintQueueValidValue(float* voltage, uint16_t deepth);
 static void SignalStrengthNotification();
 static void TemperatureNotification();
 static void TFCardNotification();
@@ -120,37 +123,96 @@ static void MOChangedNotification(app_context_t *app_context)
 }
 
 
-#define LOW_POWER_LIMIT     15
+#define LOW_POWER_LIMIT         15
+#define VOLTAGE_BUFFER_DEEPTH   5
 
 static void PowerNotification()
 {
-    float voltage;
+    float voltage_tmp = 0;
+    static float voltage[VOLTAGE_BUFFER_DEEPTH] = {0};
+    static uint16_t vol_buf_idx = 0;
+    static uint16_t vol_buf_lenth = 0;
 
-    if(GetBatteryVoltage(&voltage) != true) {
-        user_log("[ERR]PowerNotification: get battery voltage failed");
+    if(GetBatteryVoltage(&voltage_tmp) != true) {
+        user_log("[ERR]PowerNotification: get battery voltage_tmp failed");
         return ;
     }
 
-    voltage *= 100;
+    voltage_tmp *= 100.0;
     
-    if(voltage < BATTERY_VOLTAGE_LOW) {
-        user_log("[WRN]PowerNotification: battery voltage below the lowest");
+    if(voltage_tmp < BATTERY_VOLTAGE_LOW) {
+        user_log("[WRN]PowerNotification: battery voltage_tmp below the lowest");
         SetPower(0);
         return ;
     }
-    else if(voltage > BATTERY_VOLTAGE_HIGH) {
-        user_log("[WRN]PowerNotification: battery voltage is full");
+    else if(voltage_tmp > BATTERY_VOLTAGE_HIGH) {
+        user_log("[WRN]PowerNotification: battery voltage_tmp is full");
         SetPower(100);
         return ;
     }
     else {
-        int percent = (int)((voltage - BATTERY_VOLTAGE_LOW)*100.0/(BATTERY_VOLTAGE_HIGH - BATTERY_VOLTAGE_LOW));
+        PushIntoQueue(voltage, VOLTAGE_BUFFER_DEEPTH, vol_buf_idx, voltage_tmp);
+
+        if(vol_buf_idx < VOLTAGE_BUFFER_DEEPTH) {
+            vol_buf_idx++;
+            if(vol_buf_idx >= VOLTAGE_BUFFER_DEEPTH) {
+                vol_buf_idx = 0;
+            }
+        }
+        vol_buf_lenth < VOLTAGE_BUFFER_DEEPTH ? vol_buf_lenth++ : NULL;
+
+        if(vol_buf_lenth < VOLTAGE_BUFFER_DEEPTH) {
+            voltage_tmp = GetQueueAverage(voltage, vol_buf_lenth);
+        } else {
+            voltage_tmp = GetQueueAverage(voltage, VOLTAGE_BUFFER_DEEPTH);
+        }
+
+        PrintQueueValidValue(voltage, VOLTAGE_BUFFER_DEEPTH);
+
+        int percent = (int)((voltage_tmp - BATTERY_VOLTAGE_LOW)*100.0/(BATTERY_VOLTAGE_HIGH - BATTERY_VOLTAGE_LOW));
         SetPower(percent);
         user_log("[DBG]PowerNotification: current power percent %d", percent);
     }
 
     SetLowPowerAlarm( GetPower() <= LOW_POWER_LIMIT ? true : false );
     user_log("[DBG]PowerNotification: current power alarm %s", GetLowPowerAlarm() ? "true" : "false");
+}
+
+static bool PushIntoQueue(float* voltage, uint16_t deepth, uint16_t index, float data)
+{
+    if(index >= deepth) {
+        user_log("[ERR]PushIntoQueue: error input index %d larger than deepth %d", index, deepth);
+        return false;
+    }
+
+    voltage[index] = data;
+    user_log("[DBG]PushIntoQueue: voltage[%d] get value %f", index, voltage[index]);
+
+    return true;
+}
+
+static float GetQueueAverage(float* voltage, uint16_t deepth)
+{
+    uint16_t i;
+    float ret = voltage[0];
+
+    user_log("[DBG]GetQueueAverage: get the first value voltage[0] %f", voltage[0]);
+
+    for(i=1; i<deepth; i++) {
+        ret = (ret + voltage[i])/2;
+        user_log("[DBG]GetQueueAverage: get the voltage[%d] %f and ret with %f", i, voltage[i], ret);
+    }
+
+    return ret;
+}
+
+static void PrintQueueValidValue(float* voltage, uint16_t deepth)
+{
+    uint16_t i;
+
+    for(i=0; i<deepth; i++) {
+        user_log("[DBG]PrintQueueValidValue: voltage[%d] %f", i, voltage[i]);
+    }
 }
 
 static void SignalStrengthNotification()

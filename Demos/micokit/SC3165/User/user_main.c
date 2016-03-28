@@ -87,15 +87,14 @@ OSStatus user_main( app_context_t * const app_context )
   LightsInit();
 //  MusicInit();
 
-  user_log("[DBG]net_main: Appilcation Initialize success");
-  
- 
   // start the downstream thread to handle user command
   err = mico_rtos_create_thread(&user_downstrem_thread_handle, MICO_APPLICATION_PRIORITY, "user_downstream", 
                                 user_downstream_thread, STACK_SIZE_USER_DOWNSTREAM_THREAD, 
                                 app_context );
   require_noerr_action( err, exit, user_log("ERROR: create user_downstream thread failed!") );
-  
+
+  user_log("[DBG]net_main: Appilcation Initialize success @"SOFTWAREVERSION);
+
   // user_main loop, update oled display every 1s
   while(1){
     mico_thread_sleep(MICO_WAIT_FOREVER);

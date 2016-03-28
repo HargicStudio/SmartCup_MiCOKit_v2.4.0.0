@@ -35,7 +35,8 @@
 /*--------------------------------- info -------------------------------------*/
 #define MANUFACTURER                   "Hargic Inc."
 #define SERIAL_NUMBER                  "1603152256" //"1507231145"
-#define FIRMWARE_REVISION              HARDWARE_REVISION"@"SERIAL_NUMBER
+#define SOFTWAREVERSION                "V0.3.27.0"
+#define FIRMWARE_REVISION              HARDWARE_REVISION"@"SERIAL_NUMBER"&"SOFTWAREVERSION
 
 #define DEFAULT_ROM_VERSION            FIRMWARE_REVISION
 #define DEFAULT_DEVICE_NAME            MODEL   // device name upload to cloud defined in platform_config.h
@@ -56,7 +57,7 @@
  * Wi-Fi configuration mode */
 #define MICO_CONFIG_MODE                CONFIG_MODE_EASYLINK
 
-#define EasyLink_TimeOut                60000 /**< EasyLink timeout 60 seconds. */
+#define EasyLink_TimeOut                60000 /**< EasyLink timeout 5*60 seconds. */
 
 #define EasyLink_ConnectWlan_Timeout    20000 /**< Connect to wlan after configured by easylink.
                                                    Restart easylink after timeout: 20 seconds. */
