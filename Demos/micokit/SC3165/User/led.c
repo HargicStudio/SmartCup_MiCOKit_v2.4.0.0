@@ -30,11 +30,11 @@ bool LedDutyInit(float r_duty, float g_duty, float b_duty)
         return false;
     }
 
-    MicoPwmInitialize(MICO_PWM_R, 50, r_duty);
-    MicoPwmInitialize(MICO_PWM_G, 50, g_duty);
-    MicoPwmInitialize(MICO_PWM_B, 50, b_duty);
+    MicoPwmInitialize(MICO_PWM_R, 50, b_duty);
+    MicoPwmInitialize(MICO_PWM_G, 50, r_duty);
+    MicoPwmInitialize(MICO_PWM_B, 50, g_duty);
 
-    user_log("[INF]LedDutyInit: initialize with R %f G %f B %f duty cycle success", r_duty, g_duty, b_duty);
+//    user_log("[INF]LedDutyInit: initialize with R %f G %f B %f duty cycle success", r_duty, g_duty, b_duty);
 
     return true;
 }
@@ -44,13 +44,17 @@ void LedPwmStart(void)
     MicoPwmStart(MICO_PWM_R);
     MicoPwmStart(MICO_PWM_G);
     MicoPwmStart(MICO_PWM_B);
+//    user_log("[DBG]LedPwmStart: start");
 }
 
 void LedPwmStop(void)
 {
-    MicoPwmStop(MICO_PWM_R);
-    MicoPwmStop(MICO_PWM_G);
-    MicoPwmStop(MICO_PWM_B);
+//    MicoPwmStop(MICO_PWM_R);
+//    MicoPwmStop(MICO_PWM_G);
+//    MicoPwmStop(MICO_PWM_B);
+    LedDutyInit(0, 0, 0);
+    LedPwmStart();
+//    user_log("[DBG]LedPwmStop: stop");
 }
 
 

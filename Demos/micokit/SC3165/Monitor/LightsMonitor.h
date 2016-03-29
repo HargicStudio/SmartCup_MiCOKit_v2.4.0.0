@@ -18,9 +18,10 @@ History:
 #include "Object_int.h"
 #include "stdbool.h"
 #include "mico.h"
+#include "MicoFogCloud.h"
 
 
-OSStatus LightsInit();
+OSStatus LightsInit(app_context_t *app_context);
 
    
 #ifdef __cplusplus

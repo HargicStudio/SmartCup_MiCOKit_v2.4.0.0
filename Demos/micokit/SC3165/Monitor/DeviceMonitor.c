@@ -103,10 +103,12 @@ static void MOChangedNotification(app_context_t *app_context)
             ret = SendJsonInt(app_context, "DEVICE-1/SignalStrength", GetSignalStrengh());
             user_log("[DBG]MOChangedNotification: SignalStrength change to %d", GetSignalStrengh());
         }
+#if 0 
         else if(IsTemperatureChanged()) {
             ret = SendJsonDouble(app_context, "DEVICE-1/Temperature", GetTemperature());
             user_log("[DBG]MOChangedNotification: Temperature change to %lf", GetTemperature());
         }
+#endif
         else if(IsTFStatusChanged()) {
             ret = SendJsonBool(app_context, "DEVICE-1/TFStatus", GetTFStatus());
             user_log("[DBG]MOChangedNotification: TFStatus change to %s", GetTFStatus() ? "true" : "false");
@@ -124,7 +126,7 @@ static void MOChangedNotification(app_context_t *app_context)
 
 
 #define LOW_POWER_LIMIT         15
-#define VOLTAGE_BUFFER_DEEPTH   5
+#define VOLTAGE_BUFFER_DEEPTH   10
 
 static void PowerNotification()
 {
@@ -167,15 +169,15 @@ static void PowerNotification()
             voltage_tmp = GetQueueAverage(voltage, VOLTAGE_BUFFER_DEEPTH);
         }
 
-        PrintQueueValidValue(voltage, VOLTAGE_BUFFER_DEEPTH);
+//        PrintQueueValidValue(voltage, VOLTAGE_BUFFER_DEEPTH);
 
         int percent = (int)((voltage_tmp - BATTERY_VOLTAGE_LOW)*100.0/(BATTERY_VOLTAGE_HIGH - BATTERY_VOLTAGE_LOW));
         SetPower(percent);
-        user_log("[DBG]PowerNotification: current power percent %d", percent);
+//        user_log("[DBG]PowerNotification: current power percent %d", percent);
     }
 
     SetLowPowerAlarm( GetPower() <= LOW_POWER_LIMIT ? true : false );
-    user_log("[DBG]PowerNotification: current power alarm %s", GetLowPowerAlarm() ? "true" : "false");
+//    user_log("[DBG]PowerNotification: current power alarm %s", GetLowPowerAlarm() ? "true" : "false");
 }
 
 static bool PushIntoQueue(float* voltage, uint16_t deepth, uint16_t index, float data)
@@ -186,7 +188,7 @@ static bool PushIntoQueue(float* voltage, uint16_t deepth, uint16_t index, float
     }
 
     voltage[index] = data;
-    user_log("[DBG]PushIntoQueue: voltage[%d] get value %f", index, voltage[index]);
+//    user_log("[DBG]PushIntoQueue: voltage[%d] get value %f", index, voltage[index]);
 
     return true;
 }
@@ -196,11 +198,11 @@ static float GetQueueAverage(float* voltage, uint16_t deepth)
     uint16_t i;
     float ret = voltage[0];
 
-    user_log("[DBG]GetQueueAverage: get the first value voltage[0] %f", voltage[0]);
+//    user_log("[DBG]GetQueueAverage: get the first value voltage[0] %f", voltage[0]);
 
     for(i=1; i<deepth; i++) {
         ret = (ret + voltage[i])/2;
-        user_log("[DBG]GetQueueAverage: get the voltage[%d] %f and ret with %f", i, voltage[i], ret);
+//        user_log("[DBG]GetQueueAverage: get the voltage[%d] %f and ret with %f", i, voltage[i], ret);
     }
 
     return ret;
@@ -233,6 +235,8 @@ static void SignalStrengthNotification()
 static void TemperatureNotification()
 {
     // TODO: will support in Release Version 2
+    
+#if 0
     float temp;
 
     if(TMP75ReadTemperature(&temp) == true) {
@@ -241,12 +245,13 @@ static void TemperatureNotification()
     else {
         user_log("[ERR]TemperatureNotification: get temperature failed");
     }
+#endif
 }
 
 static void TFCardNotification()
 {
     // TODO: ask from 411 through spi
-    user_log("[DBG]TFCardNotification: get TF card status feature in developing");
+//    user_log("[DBG]TFCardNotification: get TF card status feature in developing");
 }
 
 

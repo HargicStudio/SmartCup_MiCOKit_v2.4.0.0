@@ -129,11 +129,6 @@ static bool ParseOMfromCloud(app_context_t *app_context, const char* string)
             }
             else if(strcmp(key, "LIGHTS-1/EnableNotifyLight") == 0) {
                 SetEnableNotifyLight(json_object_get_boolean(val));
-
-                // if disable notify light, close current light first
-                if(json_object_get_boolean(val) == false) {
-                    LedPwmStop();
-                }
             }
             else if(strcmp(key, "LIGHTS-1/GetEnableNotifyLight") == 0) {
                 if(json_object_get_boolean(val) == true) {
@@ -361,11 +356,6 @@ bool IsParameterChanged()
     if(IsLedConfChanged()) {
         set_action = true;
         user_log("[DBG]IsParameterChanged: LedConf change R:%d G:%d B:%d", GetRedConf(), GetGreenConf(), GetBlueConf());
-        if(GetLedSwitch()) {
-            LedDutyInit((float)GetRedConf(), (float)GetGreenConf(), (float)GetBlueConf());
-            LedPwmStart();
-            user_log("[DBG]IsParameterChanged: set LedConf R:%d G:%d B:%d", GetRedConf(), GetGreenConf(), GetBlueConf());
-        }
     }
     if(IsVolumeChanged()) {
         set_action = true;

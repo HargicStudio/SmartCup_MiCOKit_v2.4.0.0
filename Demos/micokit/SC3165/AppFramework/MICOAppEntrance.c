@@ -22,6 +22,7 @@
 #include "mico.h"
 #include "MICOAppDefine.h"
 #include "MiCOFogCloud.h"
+#include "led.h"
 
 //#ifdef USE_MiCOKit_EXT
 //#include "micokit_ext.h"
@@ -132,6 +133,11 @@ int application_start(void)
     err = mico_system_context_restore(mico_context);
     require_noerr( err, exit );
   }
+
+  // initialize with red LED for unconfig airkiss
+  LedDutyInit(100.0, 0, 0);
+  LedPwmStart();
+  app_log("[DBG]application_start: startup with unconfig airkiss by red LED ");
 
   /* mico system initialize */
   err = mico_system_init( mico_context );

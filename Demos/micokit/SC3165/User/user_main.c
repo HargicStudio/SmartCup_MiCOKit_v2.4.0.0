@@ -66,9 +66,9 @@ OSStatus user_main( app_context_t * const app_context )
 
   require(app_context, exit);
 
-  // Initialize
+  // Initialize with red LED
+  
   OuterTriggerInit(NULL);
-  LedPwmStop();
   TemperatureInit();
   BatteryInit();
 
@@ -84,7 +84,7 @@ OSStatus user_main( app_context_t * const app_context )
 
   DeviceInit(app_context);
   HealthInit(app_context);
-  LightsInit();
+  LightsInit(app_context);
 //  MusicInit();
 
   // start the downstream thread to handle user command
