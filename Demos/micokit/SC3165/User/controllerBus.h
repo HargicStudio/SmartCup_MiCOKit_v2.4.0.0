@@ -19,18 +19,23 @@ History:
 #include "mico.h"
 
 
+/*
+ *  align at uint16_t, or compiller will autocomplete as uint16_t
+ */
 typedef struct SCBusHeader_t {
-    u8  magic;
-    u16 datalen;
-    u8  cmd;
-    u8  checksum;
-    u8  tail;
+    uint8_t  magic;
+    uint8_t  cmd;
+    uint16_t datalen;
+    uint8_t  checksum;
+    uint8_t  tail;
 } SCBusHeader;
 
 typedef enum ECBusCmd_t {
-    
+    CONTROLLERBUS_CMD_TFSTATUS = 0x21,
 } ECBusCmd;
 
+
+bool ControllerBusInit(void);
 
    
 #ifdef __cplusplus

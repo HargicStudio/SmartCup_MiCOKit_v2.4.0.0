@@ -41,7 +41,7 @@ static mico_thread_t lights_monitor_thread_handle = NULL;
 
 
 static void lights_thread(void* arg);
-static void FlashSecond(uint16_t sec);
+static void FlashSecond(uint8_t colour, uint16_t sec);
 
 
 OSStatus LightsInit(app_context_t *app_context)

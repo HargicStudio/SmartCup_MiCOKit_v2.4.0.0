@@ -78,8 +78,8 @@ static void DeviceEstimator(void* arg)
 //        user_log("[DBG]DeviceEstimator: reload timer_device_notify success");
     }
     
-    PowerNotification();
-    SignalStrengthNotification();
+//    PowerNotification();
+//    SignalStrengthNotification();
     TemperatureNotification();
     TFCardNotification();
 

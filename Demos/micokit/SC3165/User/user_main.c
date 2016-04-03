@@ -33,7 +33,7 @@
 #include "DeviceMonitor.h"
 #include "HealthMonitor.h"
 #include "LightsMonitor.h"
-
+#include "controllerBus.h"
 
 
 /* User defined debug log functions
@@ -71,6 +71,7 @@ OSStatus user_main( app_context_t * const app_context )
   OuterTriggerInit(NULL);
   TemperatureInit();
   BatteryInit();
+  ControllerBusInit();
 
   MOInit();
 
