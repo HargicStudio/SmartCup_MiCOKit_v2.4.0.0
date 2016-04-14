@@ -55,7 +55,7 @@ EKey GetOuterTriggerStatus(void)
         if(status[1] != status[0]) {
             status[0] = status[1];
             cnt++;
-            mico_thread_msleep(20);
+            mico_thread_msleep(100);
         }
         else {
             break;

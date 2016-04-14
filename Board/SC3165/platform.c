@@ -115,7 +115,7 @@ const platform_gpio_t platform_gpio_pins[] =
 //  [MICO_GPIO_18]                      = { GPIOB,  9 },
 //  [MICO_GPIO_19]                      = { GPIOB, 12 },
 //  [MICO_GPIO_27]                      = { GPIOA, 12 },  
-//  [MICO_GPIO_29]                      = { GPIOA, 10 },
+  [MICO_GPIO_29]                      = { GPIOA, 10 },
   [MICO_GPIO_30]                      = { GPIOB,  6 },
 //  [MICO_GPIO_31]                      = { GPIOB,  8 },
 //  [MICO_GPIO_33]                      = { GPIOB, 13 },
@@ -184,7 +184,7 @@ const platform_uart_t platform_uart_peripherals[] =
       .error_flags                = ( DMA_HISR_TEIF5 | DMA_HISR_FEIF5 | DMA_HISR_DMEIF5 ),
     },
   },
-#if 0
+#if 1
   [MICO_UART_2] =
   {
     .port                         = USART1,
@@ -244,16 +244,17 @@ const platform_spi_t platform_spi_peripherals[] =
       .complete_flags             = DMA_LISR_TCIF0,
       .error_flags                = ( DMA_LISR_TEIF0 | DMA_LISR_FEIF0 | DMA_LISR_DMEIF0 ),
     },
-  },
+  }
+#if 0
   [MICO_SPI_CBUS] = 
   {
     .port                         = SPI5,
-    .gpio_af                      = GPIO_AF_SPI5,
+    .gpio_af                      = GPIO_AF6_SPI5,
     .peripheral_clock_reg         = RCC_APB2Periph_SPI5,
     .peripheral_clock_func        = RCC_APB2PeriphClockCmd,
-    .pin_mosi                     = &platform_gpio_pins[FLASH_PIN_SPI_MOSI],
-    .pin_miso                     = &platform_gpio_pins[FLASH_PIN_SPI_MISO],
-    .pin_clock                    = &platform_gpio_pins[FLASH_PIN_SPI_CLK],
+    .pin_mosi                     = &platform_gpio_pins[CBUS_PIN_MOSI],
+    .pin_miso                     = &platform_gpio_pins[CBUS_PIN_MISO],
+    .pin_clock                    = &platform_gpio_pins[CBUS_PIN_SCK],
     .tx_dma =
     {
       .controller                 = DMA2,
@@ -273,6 +274,7 @@ const platform_spi_t platform_spi_peripherals[] =
       .error_flags                = ( DMA_LISR_TEIF3 | DMA_LISR_FEIF3 | DMA_LISR_DMEIF3 ),
     },
   },
+#endif
 };
 
 platform_spi_driver_t platform_spi_drivers[MICO_SPI_MAX];
@@ -402,42 +404,37 @@ const platform_gpio_t wifi_sdio_pins[] =
 /******************************************************
 *           Interrupt Handler Definitions
 ******************************************************/
-#if 0
+
 MICO_RTOS_DEFINE_ISR( USART1_IRQHandler )
 {
   platform_uart_irq( &platform_uart_drivers[MICO_UART_2] );
 }
-#endif
 
 MICO_RTOS_DEFINE_ISR( USART2_IRQHandler )
 {
   platform_uart_irq( &platform_uart_drivers[MICO_UART_1] );
 }
 
-
 MICO_RTOS_DEFINE_ISR( DMA1_Stream6_IRQHandler )
 {
   platform_uart_tx_dma_irq( &platform_uart_drivers[MICO_UART_1] );
 }
 
-#if 0
 MICO_RTOS_DEFINE_ISR( DMA2_Stream7_IRQHandler )
 {
   platform_uart_tx_dma_irq( &platform_uart_drivers[MICO_UART_2] );
 }
-#endif
 
 MICO_RTOS_DEFINE_ISR( DMA1_Stream5_IRQHandler )
 {
   platform_uart_rx_dma_irq( &platform_uart_drivers[MICO_UART_1] );
 }
 
-#if 0
 MICO_RTOS_DEFINE_ISR( DMA2_Stream2_IRQHandler )
 {
   platform_uart_rx_dma_irq( &platform_uart_drivers[MICO_UART_2] );
 }
-#endif
+
 
 /******************************************************
 *               Function Definitions

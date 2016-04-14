@@ -241,7 +241,7 @@ typedef enum
 //    MICO_GPIO_18,
 //    MICO_GPIO_19,
 //    MICO_GPIO_27,  
-//    MICO_GPIO_29,
+    MICO_GPIO_29,
     MICO_GPIO_30,
 //    MICO_GPIO_31,
 //    MICO_GPIO_33,
@@ -257,7 +257,7 @@ typedef enum
 typedef enum
 {
   MICO_SPI_1,
-  MICO_SPI_CBUS,
+//  MICO_SPI_CBUS,
   MICO_SPI_MAX, /* Denotes the total number of SPI port aliases. Not a valid SPI alias */
   MICO_SPI_NONE,
 } mico_spi_t;
@@ -289,7 +289,7 @@ typedef enum
 typedef enum
 {
     MICO_UART_1,
-//    MICO_UART_2,
+    MICO_UART_2,
     MICO_UART_MAX, /* Denotes the total number of UART port aliases. Not a valid UART alias */
     MICO_UART_NONE,
 } mico_uart_t;

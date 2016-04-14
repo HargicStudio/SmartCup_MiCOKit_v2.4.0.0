@@ -78,9 +78,9 @@ static void DeviceEstimator(void* arg)
 //        user_log("[DBG]DeviceEstimator: reload timer_device_notify success");
     }
     
-//    PowerNotification();
-//    SignalStrengthNotification();
-    TemperatureNotification();
+    PowerNotification();
+    SignalStrengthNotification();
+//    TemperatureNotification();
     TFCardNotification();
 
     MOChangedNotification(app_context);
@@ -103,7 +103,7 @@ static void MOChangedNotification(app_context_t *app_context)
             ret = SendJsonInt(app_context, "DEVICE-1/SignalStrength", GetSignalStrengh());
             user_log("[DBG]MOChangedNotification: SignalStrength change to %d", GetSignalStrengh());
         }
-#if 0 
+#if 0
         else if(IsTemperatureChanged()) {
             ret = SendJsonDouble(app_context, "DEVICE-1/Temperature", GetTemperature());
             user_log("[DBG]MOChangedNotification: Temperature change to %lf", GetTemperature());
@@ -221,14 +221,22 @@ static void SignalStrengthNotification()
 {
     OSStatus err = kNoErr;
     LinkStatusTypeDef wifi_link_status;
+    static int link_strength;
     
     err = micoWlanGetLinkStatus(&wifi_link_status);
     if(kNoErr != err){
       user_log("[ERR]SignalStrengthNotification: err code(%d)", err);
+      return ;
     }
 
-    if(GetSignalStrengh() != wifi_link_status.wifi_strength) {
-        SetSignalStrengh(wifi_link_status.wifi_strength);
+    // will never reach 100 percent
+    if(wifi_link_status.wifi_strength >= 100) {
+        wifi_link_status.wifi_strength = 99;
+    }
+    link_strength = wifi_link_status.wifi_strength / 10;
+
+    if(GetSignalStrengh() != link_strength) {
+        SetSignalStrengh(link_strength);
     }
 }
 
@@ -236,7 +244,7 @@ static void TemperatureNotification()
 {
     // TODO: will support in Release Version 2
     
-#if 0
+#if 1
     float temp;
 
     if(TMP75ReadTemperature(&temp) == true) {

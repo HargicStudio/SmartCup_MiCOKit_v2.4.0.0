@@ -134,15 +134,10 @@ int application_start(void)
     require_noerr( err, exit );
   }
 
-  // initialize with red LED for unconfig airkiss
-  LedDutyInit(100.0, 0, 0);
-  LedPwmStart();
-  app_log("[DBG]application_start: startup with unconfig airkiss by red LED ");
-
   /* mico system initialize */
   err = mico_system_init( mico_context );
   require_noerr( err, exit );
-  MicoSysLed(true);
+//  MicoSysLed(true);
   
   // fix for AP down problem
   err = mico_system_notify_register( mico_notify_WIFI_CONNECT_FAILED,
@@ -157,6 +152,12 @@ int application_start(void)
 //    micokit_ext_mfg_test(mico_context);
 //  }
 //#endif
+
+  // initialize with red LED for unconfig airkiss
+  LedDutyInit(100.0, 0, 0);
+  LedPwmStart();
+  app_log("[DBG]application_start: startup with unconfig airkiss by red LED ");
+
   
   // block here if no wifi configuration.
   while(1){

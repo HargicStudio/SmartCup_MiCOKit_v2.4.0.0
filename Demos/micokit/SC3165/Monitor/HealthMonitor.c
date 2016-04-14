@@ -75,6 +75,7 @@ static void health_thread(void* arg)
     // avoid compiling warning
     arg = arg;
     user_log_trace();
+    EKey ot;
 
 #if 0
     u8 cup_status_temp, cup_status;
@@ -85,21 +86,26 @@ static void health_thread(void* arg)
     /* thread loop */
     while(1){
 #if 1
-        if(OUTERTRIGGER_PICKUP == GetOuterTriggerStatus()) {
+        ot = GetOuterTriggerStatus();
+        if(OUTERTRIGGER_PICKUP == ot) {
             SetDrinkStamp(true);
+            SetPutDownStamp(false);
                 
             if(!NoDisturbing() && IsPickupSetting()) {
                 // TODO: FindPickupTrack() called and send 411 to play track through spi
                 user_log("[DBG]health_thread: track index %d will be played", FindPickupTrack());
             }
         }
-        else if(OUTERTRIGGER_PUTDOWN == GetOuterTriggerStatus()) {
+        else if(OUTERTRIGGER_PUTDOWN == ot) {
             SetPutDownStamp(true);
+            SetDrinkStamp(false);
 
             if(!NoDisturbing() && IsPutDownSetting()) {
                 startPutDownTimerGroup();
             }
         }
+
+        mico_thread_msleep(500);
 #elif
         if(mico_rtos_get_semaphore(&semaphore_getup, CHECK_CUPSTATUS_TIMEOUT)) {
             // key fliter

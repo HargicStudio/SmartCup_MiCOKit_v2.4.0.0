@@ -9,6 +9,7 @@ History:
 #include "controllerBus.h"
 #include "user_debug.h"
 #include "TimeUtils.h"
+#include "user_uart.h"
 
 
 #ifdef DEBUG
@@ -22,322 +23,146 @@ History:
 #endif
 
 
-#define SPI_TEST_DEBUG  1
-
-
 #define CONTROLLERBUS_STACK_SIZE_RINGBUFFER_THREAD    0x400
-
-
-#define CONTROLLERBUS_IRQ_PIN   CBUS_PIN_TRG
 
 
 #define CONTROLLERBUS_MAGIC   0x5a
 #define CONTROLLERBUS_TAIL    0xaa
 
 
-const mico_spi_device_t controller_bus_spi =
-{
-    .port        = MICO_SPI_CBUS,
-    .chip_select = CBUS_PIN_NSS,
-    .speed       = 40000000,
-    .mode        = (SPI_CLOCK_RISING_EDGE | SPI_CLOCK_IDLE_HIGH /*| SPI_USE_DMA*/ | SPI_MSB_FIRST),
-    .bits        = 8
-};
-
 bool is_serial_data_print_open = true;
 
-mico_semaphore_t semaphore_tx = NULL;
-mico_semaphore_t semaphore_rx = NULL;
-mico_semaphore_t semaphore_resp = NULL;
+#define CONTROLLERBUS_RECV_BUFFER_LENGTH      USER_UART_BUFFER_LENGTH
+
+uint8_t recv_buffer[CONTROLLERBUS_RECV_BUFFER_LENGTH];
+
+static mico_thread_t bus_recv_ringbuffer_handle = NULL;
 
 
-#define CONTROLLERBUS_QUEUE_LENGTH      1024*2
 
-uint8_t queue_tx[CONTROLLERBUS_QUEUE_LENGTH];
-uint8_t queue_rx[CONTROLLERBUS_QUEUE_LENGTH];
-uint8_t spi_recv_buffer[CONTROLLERBUS_QUEUE_LENGTH];
-
-ring_buffer_t buf_send;
-ring_buffer_t buf_recv;
-
-
-static mico_thread_t spi_send_ringbuffer_handle = NULL;
-static mico_thread_t spi_recv_ringbuffer_handle = NULL;
-
-#ifdef SPI_TEST_DEBUG
-    static mico_thread_t spi_test_handle = NULL;
-#endif
-
-
-static void SendingRingBufferHandler(void* arg);
-static void ReceivingRingBufferHandler(void* arg);
-static void controllerbus_irq_handler();
+static void ControllerBusReceivingHandler(void* arg);
 static void PrintSerialData(uint8_t* ptr_buf, uint16_t len);
 
 
-static void SendingRingBufferHandler(void* arg)
+
+OSStatus ControllerBusSend(unsigned char *inBuf, unsigned int inBufLen)
 {
-    // avoid compiling warning
-    arg = arg;
-    uint16_t transfer_size;
-    uint8_t* available_data;
-    uint32_t bytes_available;
-
-    mico_spi_message_segment_t segment = {NULL, NULL, 0};
-
-    while(1) {
-        if(kNoErr != mico_rtos_get_semaphore(&semaphore_tx, MICO_WAIT_FOREVER)) {
-            continue;
-        }
-
-        user_log("[DBG]SendingRingBufferHandler: get semaphore_tx");
-
-        transfer_size = ring_buffer_used_space(&buf_send);
-        user_log("[DBG]SendingRingBufferHandler: get transfer_size %d", transfer_size);
-        // there is data in ring buffer need to be sent
-        if(transfer_size != 0) {
-            do {
-                ring_buffer_get_data(&buf_send, &available_data, &bytes_available);
-                bytes_available = MIN( bytes_available, transfer_size );
-
-                // send by Mico Spi Interface
-                segment.tx_buffer = available_data;
-                segment.rx_buffer = NULL;
-                segment.length = bytes_available;
-                MicoSpiTransfer(&controller_bus_spi, &segment, 1);
-
-                // debug for print sending serial data
-                if(is_serial_data_print_open == true) {
-                    PrintSerialData(available_data, bytes_available);
-                }
-
-                transfer_size -= bytes_available;
-                ring_buffer_consume(&buf_send, bytes_available);
-            } while(transfer_size != 0);
-        }
-    }
-
-    // normally should not access
-exit:
-    user_log("[ERR]SendingRingBufferHandler: some fatal error occur, thread dead");
-    mico_rtos_delete_thread(NULL);  // delete current thread
+    user_log("[DBG]ControllerBusSend: send with following data");
+    PrintSerialData(inBuf, inBufLen);
+    return user_uartSend(inBuf, inBufLen);
 }
 
 
-static void ReceivingRingBufferHandler(void* arg)
+
+static void ControllerBusReceivingHandler(void* arg)
 {
     // avoid compiling warning
     arg = arg;
-    uint16_t copied_len;
+    uint16_t received_len;
 
-    mico_spi_message_segment_t segment = {NULL, NULL, 0};
+    user_log("[DBG]ControllerBusReceivingHandler: create controllerbus thread success");
 
     while(1) {
-        if(kNoErr != mico_rtos_get_semaphore(&semaphore_rx, MICO_WAIT_FOREVER)) {
+        received_len = user_uartRecv(recv_buffer, sizeof(SCBusHeader));
+        if(received_len == 0) {
+            user_log("[ERR]ControllerBusReceivingHandler: do not received any header");
             continue;
         }
 
-        user_log("[DBG]ReceivingRingBufferHandler: get semaphore_rx");
+        user_log("[DBG]ControllerBusReceivingHandler: receive header length %d", received_len);
+        PrintSerialData(recv_buffer, received_len);
 
-        SCBusHeader* header = (SCBusHeader*)spi_recv_buffer;
+        if(received_len != sizeof(SCBusHeader)) {
+            user_log("[ERR]ControllerBusReceivingHandler: received header length do not match");
+            continue;
+        }
 
-        // receive by Mico Spi Interface
-        segment.tx_buffer = NULL;
-        segment.rx_buffer = header;
-        // receive header firstly
-        segment.length = sizeof(SCBusHeader);
-        MicoSpiTransfer(&controller_bus_spi, &segment, 1);
+        SCBusHeader* header = (SCBusHeader*)recv_buffer;
 
         // parse the header, get the data length and checksum
+        if(header->magic != CONTROLLERBUS_MAGIC || header->tail != CONTROLLERBUS_TAIL) {
+            user_log("[ERR]ControllerBusReceivingHandler: magic 0x%02x or tail 0x%02x do not match",
+                    header->magic, header->tail);
+            continue;
+        }
+        
         uint16_t datalen = header->datalen;
         uint8_t checksum = header->checksum;
 
+        user_log("[DBG]ControllerBusReceivingHandler: get datalen %d checksum 0x%02x", datalen, checksum);
+
+        // TODO: datalen should not large than (CONTROLLERBUS_RECV_BUFFER_LENGTH - sizeof(SCBusHeader))
+
         // start to receive data
-        uint8_t* payload = (uint8_t*)header + sizeof(SCBusHeader);
+        uint8_t* payload = recv_buffer + sizeof(SCBusHeader);
 
-        segment.tx_buffer = NULL;
-        segment.rx_buffer = payload;
-        // receive header firstly
-        segment.length = datalen;
-        MicoSpiTransfer(&controller_bus_spi, &segment, 1);
-
-        // check if data available
-        uint8_t recv_cehcksum = 0;
-        for(uint16_t idx = 0; idx < datalen; idx++) {
-            recv_cehcksum += *(payload + idx);
+        received_len = user_uartRecv(payload, datalen);
+        if(received_len == 0) {
+            user_log("[ERR]ControllerBusReceivingHandler: do not received any data");
+            continue;
         }
-        if(recv_cehcksum != checksum) {
-            user_log("[ERR]ReceivingRingBufferHandler: receive data checksum error, dropping");
+        
+        user_log("[DBG]ControllerBusReceivingHandler: receive data length %d", received_len);
+        PrintSerialData(payload, received_len);
+
+        if(received_len != datalen) {
+            user_log("[ERR]ControllerBusReceivingHandler: received data length do not match");
             continue;
         }
 
-        // debug for print receiving serial data
-        if(is_serial_data_print_open == true) {
-            PrintSerialData(spi_recv_buffer, sizeof(SCBusHeader) + datalen);
+#if 0
+        // check if data available
+        uint8_t data_checksum = 0;
+        data_checksum += header->magic;
+        data_checksum += header->cmd;
+        data_checksum += header->datalen >> 8;
+        data_checksum += header->datalen 0x00ff;
+        data_checksum += header->tail;
+        for(uint16_t idx = 0; idx < datalen; idx++) {
+            data_checksum += *(payload + idx);
         }
+        if(data_checksum != checksum) {
+            user_log("[ERR]ControllerBusReceivingHandler: receive data checksum error, dropping");
+            continue;
+        }
+#endif
 
-        // available data, push into queue
-        copied_len = ring_buffer_write(&buf_recv, spi_recv_buffer, sizeof(SCBusHeader) + datalen);
-        user_log("[DBG]ReceivingRingBufferHandler: %d length data have been stored into receive queue", copied_len);
-        mico_rtos_set_semaphore(&semaphore_resp);
+        user_log("[DBG]ControllerBusReceivingHandler: parse package complete");
     }
 
     // normally should not access
-exit:
-    user_log("[ERR]ReceivingRingBufferHandler: some fatal error occur, thread dead");
+//exit:
+    user_log("[ERR]ControllerBusReceivingHandler: some fatal error occur, thread dead");
     mico_rtos_delete_thread(NULL);  // delete current thread
 }
-
-#ifdef SPI_TEST_DEBUG
-
-static void SpiTestDebugThread(void* arg)
-{
-    // avoid compiling warning
-    arg = arg;
-    OSStatus err;
-    uint16_t copied_len;
-    uint8_t test_buf[8];
-
-    while(1) {
-        // receive data
-        err = mico_rtos_get_semaphore(&semaphore_resp, 2*UpTicksPerSecond());
-        if(err == kNoErr) {
-            user_log("[DBG]SpiTestDebugThread: data received");
-
-            uint16_t transfer_size = ring_buffer_used_space(&buf_recv);;
-            uint8_t* available_data;
-            uint32_t bytes_available;
-
-            do {
-                ring_buffer_get_data(&buf_recv, &available_data, &bytes_available);
-                bytes_available = MIN( bytes_available, transfer_size );
-
-                // debug for print sending serial data
-                if(is_serial_data_print_open == true) {
-                    PrintSerialData(available_data, bytes_available);
-                }
-
-                transfer_size -= bytes_available;
-                ring_buffer_consume(&buf_recv, bytes_available);
-            } while(transfer_size != 0);
-        }
-
-        // sleep
-        mico_thread_sleep(2);
-
-        // sending data
-        SCBusHeader* header = (SCBusHeader*)test_buf;
-
-        // set sending data
-        header->magic = CONTROLLERBUS_MAGIC;
-        header->cmd = CONTROLLERBUS_CMD_TFSTATUS;
-        header->datalen = 0;
-        header->checksum = 0;
-        header->tail = CONTROLLERBUS_TAIL;
-
-        // debug for print sending serial data
-        if(is_serial_data_print_open == true) {
-            
-            PrintSerialData(test_buf, sizeof(SCBusHeader));
-        }
-
-        // store into sending queue
-        copied_len = ring_buffer_write(&buf_send, test_buf, sizeof(SCBusHeader));
-        user_log("[DBG]SpiTestDebugThread: %d length data have been stored into sending queue", copied_len);
-        // trigger to send
-        mico_rtos_set_semaphore(&semaphore_tx);
-    }
-}
-
-#endif /* end of SPI_TEST_DEBUG */
 
 bool ControllerBusInit(void)
 {
     OSStatus err;
 
-    err = MicoSpiInitialize( &controller_bus_spi );
-    if(err != kNoErr) {
-        user_log("[ERR]ControllerBusInit: mico spi initialize failed");
-        return false;
-    }
+    // V2 PCB, spi pin reused for uart, can be remove at V3 PCB
+    PinInitForUsart();
 
-    err = MicoGpioInitialize(CONTROLLERBUS_IRQ_PIN, INPUT_HIGH_IMPEDANCE);
+    err = user_uartInit();
     if(err != kNoErr) {
-        user_log("[ERR]ControllerBusInit: mico gpio irq initialize failed");
+        user_log("[ERR]ControllerBusInit: mico uart initialize failed");
         return false;
     }
-    err = MicoGpioEnableIRQ( CONTROLLERBUS_IRQ_PIN, IRQ_TRIGGER_FALLING_EDGE, controllerbus_irq_handler, NULL );
-    if(err != kNoErr) {
-        user_log("[ERR]ControllerBusInit: mico gpio irq enable failed");
-        return false;
-    }
-
-    err = mico_rtos_init_semaphore(&semaphore_tx, 4);
-    if(err != kNoErr) {
-        user_log("[ERR]ControllerBusInit: semaphore_tx initialize failed");
-        return false;
-    }
-    err = mico_rtos_init_semaphore(&semaphore_rx, 4);
-    if(err != kNoErr) {
-        user_log("[ERR]ControllerBusInit: semaphore_rx initialize failed");
-        return false;
-    }
-    err = mico_rtos_init_semaphore(&semaphore_resp, 4);
-    if(err != kNoErr) {
-        user_log("[ERR]ControllerBusInit: semaphore_resp initialize failed");
-        return false;
-    }
-
-    err = ring_buffer_init(&buf_send, queue_tx, CONTROLLERBUS_QUEUE_LENGTH);
-    if(err != kNoErr) {
-        user_log("[ERR]ControllerBusInit: sending ring buffer initialize failed");
-        return false;
-    }
-    err = ring_buffer_init(&buf_recv, queue_rx, CONTROLLERBUS_QUEUE_LENGTH);
-    if(err != kNoErr) {
-        user_log("[ERR]ControllerBusInit: receiving ring buffer initialize failed");
-        return false;
-    }
-
-    // start the spi ring bugger send/receive thread to handle cotroller bus data
-    err = mico_rtos_create_thread(&spi_send_ringbuffer_handle, MICO_APPLICATION_PRIORITY, "BusRingBufSend", 
-                                SendingRingBufferHandler, CONTROLLERBUS_STACK_SIZE_RINGBUFFER_THREAD, 
-                                NULL);
-    if(err != kNoErr) {
-        user_log("[ERR]ControllerBusInit: create controller bus sending thread failed");
-        return false;
-    }
-    err = mico_rtos_create_thread(&spi_recv_ringbuffer_handle, MICO_APPLICATION_PRIORITY, "BusRingBufRecv", 
-                                ReceivingRingBufferHandler, CONTROLLERBUS_STACK_SIZE_RINGBUFFER_THREAD, 
+    
+    // start the uart receive thread to handle controller bus data
+    err = mico_rtos_create_thread(&bus_recv_ringbuffer_handle, MICO_APPLICATION_PRIORITY, "BusRingBufRecv", 
+                                ControllerBusReceivingHandler, CONTROLLERBUS_STACK_SIZE_RINGBUFFER_THREAD, 
                                 NULL);
     if(err != kNoErr) {
         user_log("[ERR]ControllerBusInit: create controller bus receiving thread failed");
         return false;
     }
 
-#ifdef SPI_TEST_DEBUG
-    err = mico_rtos_create_thread(&spi_test_handle, MICO_APPLICATION_PRIORITY, "spi_test", 
-                                SpiTestDebugThread, CONTROLLERBUS_STACK_SIZE_RINGBUFFER_THREAD, 
-                                NULL);
-    if(err != kNoErr) {
-        user_log("[ERR]ControllerBusInit: create controller bus spi test debug thread failed");
-        return false;
-    }
-#endif
-
     user_log("[DBG]ControllerBusInit: controller bus initialize success");
 
     return true;
 }
 
-static void controllerbus_irq_handler()
-{
-    if(NULL == semaphore_rx) {
-        return ;
-    }
-
-    mico_rtos_set_semaphore(&semaphore_rx);
-}
 
 #define DATA_NUMBER_PRE_LINE    8
 
@@ -355,17 +180,20 @@ static void PrintSerialData(uint8_t* ptr_buf, uint16_t len)
     printf("\r\n");
 }
 
-void SpiDebugSendTestData(void)
-{
 
+#define CONTROLLERBUS_PIN_MOSI  CBUS_PIN_MOSI
+#define CONTROLLERBUS_PIN_MISO  CBUS_PIN_MISO
+#define CONTROLLERBUS_PIN_SCK   CBUS_PIN_SCK
+#define CONTROLLERBUS_PIN_NSS   CBUS_PIN_NSS
+
+void PinInitForUsart(void)
+{
+    MicoGpioInitialize(CONTROLLERBUS_PIN_MISO, INPUT_HIGH_IMPEDANCE);
+    MicoGpioInitialize(CONTROLLERBUS_PIN_MOSI, INPUT_HIGH_IMPEDANCE);
+    MicoGpioInitialize(CONTROLLERBUS_PIN_SCK, INPUT_HIGH_IMPEDANCE);
+    MicoGpioInitialize(CONTROLLERBUS_PIN_NSS, INPUT_HIGH_IMPEDANCE);
 }
 
-/*
-bool ControllerBusSend(ECBusCmd cmd, u8* data, u16 datalen)
-{
-    
-}
-*/
 
 // end of file
 

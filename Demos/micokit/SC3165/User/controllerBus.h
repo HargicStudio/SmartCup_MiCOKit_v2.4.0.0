@@ -35,7 +35,11 @@ typedef enum ECBusCmd_t {
 } ECBusCmd;
 
 
+
 bool ControllerBusInit(void);
+void PinInitForUsart(void);
+OSStatus ControllerBusSend(unsigned char *inBuf, unsigned int inBufLen);
+
 
    
 #ifdef __cplusplus

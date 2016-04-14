@@ -35,8 +35,8 @@
 /*--------------------------------- info -------------------------------------*/
 #define MANUFACTURER                   "Hargic Inc."
 #define SERIAL_NUMBER                  "1603152256" //"1507231145"
-#define SOFTWAREVERSION                "V0.3.27.0"
-#define FIRMWARE_REVISION              HARDWARE_REVISION"@"SERIAL_NUMBER"&"SOFTWAREVERSION
+#define SOFTWAREVERSION                "V0.4.15.5"
+#define FIRMWARE_REVISION              HARDWARE_REVISION"@"SERIAL_NUMBER" & "SOFTWAREVERSION
 
 #define DEFAULT_ROM_VERSION            FIRMWARE_REVISION
 #define DEFAULT_DEVICE_NAME            MODEL   // device name upload to cloud defined in platform_config.h

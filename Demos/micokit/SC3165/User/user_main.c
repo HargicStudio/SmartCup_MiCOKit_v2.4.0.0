@@ -45,7 +45,7 @@
 
 
 static mico_thread_t user_downstrem_thread_handle = NULL;
-static mico_thread_t user_upstream_thread_handle = NULL;
+//static mico_thread_t user_upstream_thread_handle = NULL;
 
 
 OSStatus SntpInit(app_context_t * const app_context);
@@ -63,6 +63,9 @@ OSStatus user_main( app_context_t * const app_context )
 {
   user_log_trace();
   OSStatus err = kUnknownErr;
+  unsigned char rdata[64];
+  unsigned char sdata[64];
+  uint16_t datalen;
 
   require(app_context, exit);
 
@@ -73,7 +76,9 @@ OSStatus user_main( app_context_t * const app_context )
   BatteryInit();
   ControllerBusInit();
 
+#if 1
   MOInit();
+#endif
 
   err = SntpInit(app_context);
   if(kNoErr != err) {
@@ -83,6 +88,7 @@ OSStatus user_main( app_context_t * const app_context )
     user_log("[DBG]net_main: SntpInit success");
   }
 
+#if 1
   DeviceInit(app_context);
   HealthInit(app_context);
   LightsInit(app_context);
@@ -93,18 +99,40 @@ OSStatus user_main( app_context_t * const app_context )
                                 user_downstream_thread, STACK_SIZE_USER_DOWNSTREAM_THREAD, 
                                 app_context );
   require_noerr_action( err, exit, user_log("ERROR: create user_downstream thread failed!") );
+#endif
+
 
   user_log("[DBG]net_main: Appilcation Initialize success @"SOFTWAREVERSION);
 
   // user_main loop, update oled display every 1s
   while(1){
+
+#if 1
     mico_thread_sleep(MICO_WAIT_FOREVER);
-//    mico_thread_sleep(2);
+#else
+
+    mico_thread_sleep(5);
+
+    datalen = user_uartRecv(rdata, 5);
+    if(datalen) {
+      user_log("[DBG]user_main: Usart recevice datalen %d", datalen);
+      user_log("[DBG]user_main: receive %.*s", datalen, rdata);
+    }
+    else {
+      user_log("[DBG]user_main: Usart didn't recevice data");
+    }
+
+    mico_thread_sleep(2);
+
+    sprintf(sdata, "hello, world!\r\n");
+    user_uartSend(sdata, strlen(sdata));
+#endif
+
   }
 
 exit:
   if(kNoErr != err){
-    user_log("ERROR: user_main thread exit with err=%d", err);
+    user_log("[ERR]user_main: user_main thread exit with err=%d", err);
   }
   mico_rtos_delete_thread(NULL);  // delete current thread
   return err;
