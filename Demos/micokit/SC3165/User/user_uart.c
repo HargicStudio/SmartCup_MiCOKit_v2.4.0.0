@@ -41,7 +41,7 @@ OSStatus user_uartInit(void)
   mico_uart_config_t uart_config;
   
   //USART init
-  uart_config.baud_rate    = 115200;
+  uart_config.baud_rate    = 921600;
   uart_config.data_width   = DATA_WIDTH_8BIT;
   uart_config.parity       = NO_PARITY;
   uart_config.stop_bits    = STOP_BITS_1;

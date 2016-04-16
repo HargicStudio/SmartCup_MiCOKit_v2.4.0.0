@@ -31,14 +31,22 @@ typedef struct SCBusHeader_t {
 } SCBusHeader;
 
 typedef enum ECBusCmd_t {
-    CONTROLLERBUS_CMD_TFSTATUS = 0x21,
+    CONTROLLERBUS_CMD_GETTRACKNUM   = 0x11,
+    CONTROLLERBUS_CMD_GETTRQACKNAME = 0x12,
+    CONTROLLERBUS_CMD_PLAY          = 0x13,
+    CONTROLLERBUS_CMD_DELETE        = 0x14,
+    CONTROLLERBUS_CMD_ADD           = 0x15,
+    CONTROLLERBUS_CMD_EXIT          = 0x16,
+    CONTROLLERBUS_CMD_VOLUME        = 0x17,
+    CONTROLLERBUS_CMD_QUERYSTATUS   = 0x18,
+    CONTROLLERBUS_CMD_TFSTATUS      = 0x21,
 } ECBusCmd;
 
 
 
 bool ControllerBusInit(void);
 void PinInitForUsart(void);
-OSStatus ControllerBusSend(unsigned char *inBuf, unsigned int inBufLen);
+OSStatus ControllerBusSend(ECBusCmd cmd, unsigned char *inData, unsigned int inDataLen);
 
 
    

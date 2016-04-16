@@ -18,10 +18,12 @@ History:
 #include "Object_int.h"
 #include "stdbool.h"
 #include "mico.h"
+#include "MicoFogCloud.h"
 
 
-OSStatus MusicInit();
-OSStatus PlayingSong(u16 tracknum);
+OSStatus MusicInit(app_context_t *app_context);
+OSStatus UploadTrack(u16 tracknum, char* trackname);
+
 
 
    

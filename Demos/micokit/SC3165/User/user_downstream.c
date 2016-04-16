@@ -27,6 +27,7 @@
 #include "led.h"
 #include "OMFactory.h"
 #include "MusicMonitor.h"
+#include "controllerBus.h"
 
 /* User defined debug log functions
  * Add your own tag like: 'USER_DOWNSTREAM', the tag will be added at the beginning of a log
@@ -172,8 +173,8 @@ static bool ParseOMfromCloud(app_context_t *app_context, const char* string)
             }
             else if(strcmp(key, "MUSIC-1/GetTrackList") == 0) {
                 if(json_object_get_boolean(val) == true) {
-                    user_log("[DBG]ParseOMfromCloud: will upload all track information here");
-                    // TODO: will trigger upload all track info.
+                    user_log("[DBG]ParseOMfromCloud: query track number");
+                    ControllerBusSend(CONTROLLERBUS_CMD_GETTRACKNUM, NULL, 0);
                 }
             }
             else if(strcmp(key, "MUSIC-1/DelTrack") == 0) {
@@ -359,9 +360,10 @@ bool IsParameterChanged()
     }
     if(IsVolumeChanged()) {
         set_action = true;
-        // TODO: get volume from 411 through spi
-        user_log("[DBG]IsParameterChanged: Music volume feature in developing");
-//        user_log("[DBG]IsParameterChanged: Volume change %d", GetVolume());
+        
+        unsigned char volume = GetVolume();
+        ControllerBusSend(CONTROLLERBUS_CMD_VOLUME, &volume, sizeof(volume));
+        user_log("[DBG]IsParameterChanged: sending config volume");
     }
     if(IsIfNoDisturbingChanged()) {
         set_action = true;

@@ -92,7 +92,7 @@ OSStatus user_main( app_context_t * const app_context )
   DeviceInit(app_context);
   HealthInit(app_context);
   LightsInit(app_context);
-//  MusicInit();
+  MusicInit(app_context);
 
   // start the downstream thread to handle user command
   err = mico_rtos_create_thread(&user_downstrem_thread_handle, MICO_APPLICATION_PRIORITY, "user_downstream", 

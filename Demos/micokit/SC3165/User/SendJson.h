@@ -18,6 +18,8 @@ History:
 #include "Object_int.h"
 #include "stdbool.h"
 #include "MicoFogCloud.h"
+#include "If_MO.h"
+
 
 
 bool SendJsonInt(app_context_t *arg, char* str, int value);
@@ -30,7 +32,7 @@ bool SendJsonPutdown(app_context_t *arg);
 bool SendJsonImmediate(app_context_t *arg);
 bool SendJsonSchedule(app_context_t *arg);
 bool SendJsonAppointment(app_context_t *arg);
-bool SendJsonTrack(app_context_t *arg);
+bool SendJsonTrack(app_context_t *arg, STrack* track);
 
    
 #ifdef __cplusplus

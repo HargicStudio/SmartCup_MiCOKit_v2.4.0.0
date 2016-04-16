@@ -81,7 +81,9 @@ static void lights_thread(void* arg)
     /* thread loop */
     while(1){
         if(app_context->appStatus.fogcloudStatus.isCloudConnected != true) {
-            FlashSecond(FLASH_RED, 2);
+            user_log("[WRN]lights_thread: could disconnect");
+            FlashSecond(FLASH_RED, 1);
+            mico_thread_sleep(2);
             continue;
         }
         
@@ -135,7 +137,7 @@ static void FlashSecond(uint8_t colour, uint16_t sec)
     for(i=0; i<sec; i++) {
         LedPwmStop();
         user_log("[DBG]FlashSecond: stop led");
-        mico_thread_sleep(1);
+        mico_thread_msleep(500);
         switch(colour) {
             case FLASH_RED: LedDutyInit(100.0, 0, 0); break;
             case FLASH_GREEN: LedDutyInit(0, 100.0, 0); break;
@@ -143,7 +145,7 @@ static void FlashSecond(uint8_t colour, uint16_t sec)
         }
         LedPwmStart();
         user_log("[DBG]FlashSecond: startup led flash");
-        mico_thread_sleep(1);
+        mico_thread_msleep(500);
     }
 
     LedPwmStop();

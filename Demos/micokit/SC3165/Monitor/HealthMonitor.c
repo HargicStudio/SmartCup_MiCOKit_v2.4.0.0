@@ -19,6 +19,7 @@ History:
 #include "SendJson.h"
 #include "user_debug.h"
 #include "outTrigger.h"
+#include "controllerBus.h"
 
 
 typedef struct SputDownTimer_t {
@@ -92,8 +93,9 @@ static void health_thread(void* arg)
             SetPutDownStamp(false);
                 
             if(!NoDisturbing() && IsPickupSetting()) {
-                // TODO: FindPickupTrack() called and send 411 to play track through spi
-                user_log("[DBG]health_thread: track index %d will be played", FindPickupTrack());
+                u16 track_id = FindPickupTrack();
+                user_log("[DBG]health_thread: track index %d will be played", track_id);
+                ControllerBusSend(CONTROLLERBUS_CMD_PLAY, (unsigned char*)&track_id, sizeof(track_id));
             }
         }
         else if(OUTERTRIGGER_PUTDOWN == ot) {
@@ -286,8 +288,9 @@ static void startPutDownTimerGroup()
         }
 
         if(GetPutDownRemindDelay(idx) == 0) {
-            // TODO: GetPutDownSelTrack(idx) called and send 411 to play track through spi
-            user_log("[DBG]startPutDownTimerGroup: track index %d will be played", GetPutDownSelTrack(idx));
+            u16 track_id = GetPutDownSelTrack(idx);
+            user_log("[DBG]startPutDownTimerGroup: track index %d will be played", track_id);
+            ControllerBusSend(CONTROLLERBUS_CMD_PLAY, (unsigned char*)&track_id, sizeof(track_id));
         }
         else {
             // if another putdown action trigger, reset last timers
@@ -313,8 +316,9 @@ static void PutdownTimeout(void* arg)
     
     // if this putdown tag is disable during timer timeout, do not need to play song
     if(GetPutDownEnable(mng->index)) {
-        // TODO: GetPutDownSelTrack(mng->index) called and send 411 to play track through spi
-        user_log("[DBG]PutdownTimeout: track index %d will be played", GetPutDownSelTrack(mng->index));
+        u16 track_id = GetPutDownSelTrack(mng->index);
+        user_log("[DBG]PutdownTimeout: track index %d will be played", track_id);
+        ControllerBusSend(CONTROLLERBUS_CMD_PLAY, (unsigned char*)&track_id, sizeof(track_id));
     }
 }
 
@@ -365,8 +369,9 @@ static void ScheduleTimeout(void* arg)
 
     times = GetScheduleRemindTimes(mng->index);
     while(times--) {
-        // TODO: GetScheduleSelTrack(mng->index) called and send 411 to play track through spi
-        user_log("[DBG]ScheduleTimeout: track index %d will be played %d times", GetScheduleSelTrack(mng->index), times);
+        u16 track_id = GetScheduleSelTrack(mng->index);
+        user_log("[DBG]ScheduleTimeout: track index %d will be played %d times", track_id, times);
+        ControllerBusSend(CONTROLLERBUS_CMD_PLAY, (unsigned char*)&track_id, sizeof(track_id));
     }
 }
 

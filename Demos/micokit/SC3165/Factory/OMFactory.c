@@ -16,6 +16,7 @@ History:
 #include "DeviceMonitor.h"
 #include "CheckSumUtils.h"
 #include "user_debug.h"
+#include "controllerBus.h"
 
 
 #ifdef DEBUG
@@ -112,6 +113,7 @@ static bool ParseOM(const char* string)
     json_object *get_json_object = NULL;
     char om_string[64];
     u8 index;
+    unsigned char volume;
     
     get_json_object = json_tokener_parse(string);
     if (NULL != get_json_object){
@@ -240,6 +242,32 @@ static bool ParseOM(const char* string)
                     }
                 }
             }
+        }
+
+        // clear setting flag
+        IsTempSwitchChanged();
+        IsPowerOnDisplayChanged();
+        IsEnableNotifyLightChanged();
+        IsLedSwitchChanged();
+        IsLedConfChanged();
+        if(IsVolumeChanged()) {
+            user_log("[DBG]ParseOM: volume changed, sending volume config");
+            volume = GetVolume();
+            ControllerBusSend(CONTROLLERBUS_CMD_VOLUME, &volume, sizeof(volume));
+        }
+        IsIfNoDisturbingChanged();
+        IsNoDisturbingTimeChanged();
+        for(index = 0; index < MAX_DEPTH_PICKUP; index++) {
+            IsPickupChanged(index);
+        }
+        for(index = 0; index < MAX_DEPTH_PUTDOWN; index++) {
+            IsPutdownChanged(index);
+        }
+        for(index = 0; index < MAX_DEPTH_IMMEDIATE; index++) {
+            IsImmediateChanged(index);
+        }
+        for(index = 0; index < MAX_DEPTH_SCHEDULE; index++) {
+            IsScheduleChanged(index);
         }
 
         // free memory of json object

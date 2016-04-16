@@ -17,6 +17,7 @@ History:
 #include "user_debug.h"
 #include "battery.h"
 #include "temperature.h"
+#include "controllerBus.h"
 
 
 #ifdef DEBUG
@@ -48,7 +49,7 @@ void DeviceInit(app_context_t *app_context)
 {
     OSStatus err;
 
-    err = mico_init_timer(&timer_device_notify, 2*UpTicksPerSecond(), DeviceEstimator, app_context);
+    err = mico_init_timer(&timer_device_notify, 5*UpTicksPerSecond(), DeviceEstimator, app_context);
     if(kNoErr != err) {
         user_log("[ERR]DeviceInit: create timer_device_notify failed");
     }
@@ -63,6 +64,9 @@ void DeviceInit(app_context_t *app_context)
             user_log("[DBG]DeviceInit: start timer_device_notify success");
         }
     }
+
+    ControllerBusSend(CONTROLLERBUS_CMD_TFSTATUS, NULL, 0);
+    user_log("[DBG]DeviceInit: query TF Card status");
 }
 
 static void DeviceEstimator(void* arg)
@@ -258,8 +262,7 @@ static void TemperatureNotification()
 
 static void TFCardNotification()
 {
-    // TODO: ask from 411 through spi
-//    user_log("[DBG]TFCardNotification: get TF card status feature in developing");
+    
 }
 
 

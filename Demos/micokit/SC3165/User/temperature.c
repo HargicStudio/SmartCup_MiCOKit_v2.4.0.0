@@ -134,9 +134,12 @@ bool TemperatureInit(void)
         return false;
     }
 
+    // set resolution as 9bits(0.5 C)
+    confReg &= ~TMP75_CONFREG_RX;
+
     // set resolution as 12bits(0.0625 C)
-//    confReg &= ~TMP75_CONFREG_RX;
-    confReg |= TMP75_CONFREG_RX;
+//    confReg |= TMP75_CONFREG_RX;
+
     if(TMP75_IO_Write(&confReg, TMP75_POINTERADDR_CONFREG, 1) != true) {
         user_log("[ERR]TemperatureInit: TMP75_IO_Write CONFREG failed");
         return false;

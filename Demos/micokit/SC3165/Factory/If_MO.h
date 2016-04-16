@@ -54,9 +54,11 @@ typedef struct SMusic_t {
 } SMusic;
 
 
+#define TRACKNAME_MAX_LENGTH    64
+
 typedef struct STrack_t {
     u16     trackIdx;
-    char*   trackName;
+    char    trackName[TRACKNAME_MAX_LENGTH];
 } STrack;
 
 

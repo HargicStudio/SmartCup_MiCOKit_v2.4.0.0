@@ -11,10 +11,7 @@ History:
 #include "mico.h"
 #include "json_c/json.h"
 #include "SendJson.h"
-#include "If_MO.h"
 #include "user_debug.h"
-//#include "ffconf.h"
-//#include "mp3.h"
 
 
 #ifdef DEBUG
@@ -308,15 +305,11 @@ bool SendJsonAppointment(app_context_t *arg)
     return ret;
 }
 
-#if 0
-bool SendJsonTrack(app_context_t *arg)
+bool SendJsonTrack(app_context_t *arg, STrack* track)
 {
     bool ret;
     json_object *send_json_object = NULL;
-    u8 idx;
-    u8 music_num;
-    char name[_MAX_LFN];
-    char om_name[_MAX_LFN];
+    char om_name[TRACKNAME_MAX_LENGTH];
     char om_string[64];
 
     send_json_object = json_object_new_object();
@@ -324,20 +317,9 @@ bool SendJsonTrack(app_context_t *arg)
         user_log("[ERR]SendJsonTrack: create json object error");
     }
     else {
-        music_num = MP3_getMp3FileNum("0:/default/");
-        user_log("[DBG]SendJsonTrack: path 0:/default/ have mp3 file number %d", music_num);
-        music_num = MP3_getMp3FileNum("0:/");
-        user_log("[DBG]SendJsonTrack: path 0:/ have mp3 file number %d", music_num);
-        
-        for(idx=0; idx<music_num; idx++) {
-            MP3_getMp3FileName("0:/", idx, (u8*)name);
-            
-            sprintf(om_string, "TRACK-%d/Index\0", idx + 1);
-            json_object_object_add(send_json_object, om_string, json_object_new_int(idx + 1));
-            sprintf(om_string, "TRACK-%d/TrackName\0", idx + 1);
-            sprintf(om_name, "%s\0", name);
-            json_object_object_add(send_json_object, om_string, json_object_new_string(om_name));
-        }
+        sprintf(om_string, "TRACK-%d/TrackName\0", track->trackIdx);
+        sprintf(om_name, "%s\0", track->trackName);
+        json_object_object_add(send_json_object, om_string, json_object_new_string(om_name));
 
         ret = SendJson(arg, send_json_object);
     }
@@ -348,7 +330,8 @@ bool SendJsonTrack(app_context_t *arg)
 
     return ret;
 }
-#endif
+
+
 
 // end of file
 

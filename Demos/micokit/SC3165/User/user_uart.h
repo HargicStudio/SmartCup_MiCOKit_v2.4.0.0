@@ -31,7 +31,7 @@
 #define USER_UART                     (MICO_UART_2)
 
 #define USER_UART_RECV_TIMEOUT              MICO_NEVER_TIMEOUT //100
-#define USER_UART_BUFFER_LENGTH             128
+#define USER_UART_BUFFER_LENGTH             256
    
 #define STACK_SIZE_USART_RECV_THREAD        0x500
 
