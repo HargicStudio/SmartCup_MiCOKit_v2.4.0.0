@@ -119,13 +119,7 @@ static bool ParseOM(const char* string)
     if (NULL != get_json_object){
         json_object_object_foreach(get_json_object, key, val) {
             // parse
-            if(strcmp(key, "DEVICE-1/TempSwitch") == 0) {
-                SetTempSwitch(json_object_get_boolean(val));
-            }
-            else if(strcmp(key, "DEVICE-1/PowerOnDisplay") == 0) {
-                SetPowerOnDisplay(json_object_get_boolean(val));
-            }
-            else if(strcmp(key, "LIGHTS-1/EnableNotifyLight") == 0) {
+            if(strcmp(key, "LIGHTS-1/EnableNotifyLight") == 0) {
                 SetEnableNotifyLight(json_object_get_boolean(val));
             }
             else if(strcmp(key, "LIGHTS-1/LedSwitch") == 0) {
@@ -245,8 +239,6 @@ static bool ParseOM(const char* string)
         }
 
         // clear setting flag
-        IsTempSwitchChanged();
-        IsPowerOnDisplayChanged();
         IsEnableNotifyLightChanged();
         IsLedSwitchChanged();
         IsLedConfChanged();
@@ -302,8 +294,6 @@ void OMFactorySave()
         user_log("[ERR]OMFactorySave: create json object error");
     }
     else {
-        json_object_object_add(save_json_object, "DEVICE-1/TempSwitch", json_object_new_boolean(GetTempSwitch()));
-        json_object_object_add(save_json_object, "DEVICE-1/PowerOnDisplay", json_object_new_boolean(GetPowerOnDisplay()));
         json_object_object_add(save_json_object, "LIGHTS-1/EnableNotifyLight", json_object_new_boolean(GetEnableNotifyLight()));
         json_object_object_add(save_json_object, "LIGHTS-1/LedSwitch", json_object_new_boolean(GetLedSwitch()));
         json_object_object_add(save_json_object, "LIGHTS-1/LedConfRed", json_object_new_int(GetRedConf()));
@@ -394,15 +384,14 @@ exit:
 static void SaveObjectModelDefaultParameter()
 {
     u8 index;
+    unsigned char volume;
 
     user_log("[DBG]SaveObjectModelDefaultParameter: will save default parameter");
     
-    SetTempSwitch(false);
-    SetPowerOnDisplay(false);
     SetEnableNotifyLight(false);
     SetLedSwitch(false);
-    SetRedConf(50);
-    SetGreenConf(0);
+    SetRedConf(0);
+    SetGreenConf(50);
     SetBlueConf(0);
     SetVolume(20);
     SetIfNoDisturbing(false);
@@ -432,8 +421,16 @@ static void SaveObjectModelDefaultParameter()
         SetScheduleSelTrack(index, 0);
     }
 
-    // to take effect of default setting
+    // clear setting flag
+    IsEnableNotifyLightChanged();
+    IsLedSwitchChanged();
     IsLedConfChanged();
+    if(IsVolumeChanged()) {
+        user_log("[DBG]ParseOM: volume changed, sending volume config");
+        volume = GetVolume();
+        ControllerBusSend(CONTROLLERBUS_CMD_VOLUME, &volume, sizeof(volume));
+    }
+    IsIfNoDisturbingChanged();
     IsNoDisturbingTimeChanged();
     for(index = 0; index < MAX_DEPTH_PICKUP; index++) {
         IsPickupChanged(index);
@@ -455,8 +452,6 @@ static void PrintInitParameter()
 {
     u8 index;
     
-    user_log("[DBG]PrintInitParameter: DEVICE-1/TempSwitch: %s", GetTempSwitch() ? "true" : "false");
-    user_log("[DBG]PrintInitParameter: DEVICE-1/PowerOnDisplay: %s", GetPowerOnDisplay() ? "true" : "false");
     user_log("[DBG]PrintInitParameter: LIGHTS-1/EnableNotifyLight: %s", GetEnableNotifyLight() ? "true" : "false");
     user_log("[DBG]PrintInitParameter: LIGHTS-1/LedSwitch: %s", GetLedSwitch() ? "true" : "false");
     user_log("[DBG]PrintInitParameter: LIGHTS-1/LedConfRed: %d", GetRedConf());
@@ -474,9 +469,9 @@ static void PrintInitParameter()
         user_log("[DBG]PrintInitParameter: HEALTH-1/PICKUP-%d/SelTrack: %d", index, GetPickUpSelTrack(index));
     }
     for(index = 0; index < MAX_DEPTH_PUTDOWN; index++) {
-        user_log("[DBG]PrintInitParameter: HEALTH-1/HEALTH-1/PUTDOWN-%d/Enable: %s", index, GetPutDownEnable(index) ? "true" : "false");
-        user_log("[DBG]PrintInitParameter: HEALTH-1/HEALTH-1/PUTDOWN-%d/RemindDelay: %d", index, GetPutDownRemindDelay(index));
-        user_log("[DBG]PrintInitParameter: HEALTH-1/HEALTH-1/PUTDOWN-%d/SelTrack: %d", index, GetPutDownSelTrack(index));
+        user_log("[DBG]PrintInitParameter: HEALTH-1/PUTDOWN-%d/Enable: %s", index, GetPutDownEnable(index) ? "true" : "false");
+        user_log("[DBG]PrintInitParameter: HEALTH-1/PUTDOWN-%d/RemindDelay: %d", index, GetPutDownRemindDelay(index));
+        user_log("[DBG]PrintInitParameter: HEALTH-1/PUTDOWN-%d/SelTrack: %d", index, GetPutDownSelTrack(index));
     }
     for(index = 0; index < MAX_DEPTH_IMMEDIATE; index++) {
         user_log("[DBG]PrintInitParameter: HEALTH-1/IMMEDIATE-%d/Enable: %s", index, GetImmediateEnable(index) ? "true" : "false");

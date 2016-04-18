@@ -73,8 +73,7 @@ static void ScheduleTimeout(void* arg);
 
 static void health_thread(void* arg)
 {
-    // avoid compiling warning
-    arg = arg;
+    app_context_t *app_context = (app_context_t *)arg;
     user_log_trace();
     EKey ot;
 
@@ -89,25 +88,31 @@ static void health_thread(void* arg)
 #if 1
         ot = GetOuterTriggerStatus();
         if(OUTERTRIGGER_PICKUP == ot) {
-            SetDrinkStamp(true);
-            SetPutDownStamp(false);
-                
-            if(!NoDisturbing() && IsPickupSetting()) {
-                u16 track_id = FindPickupTrack();
-                user_log("[DBG]health_thread: track index %d will be played", track_id);
-                ControllerBusSend(CONTROLLERBUS_CMD_PLAY, (unsigned char*)&track_id, sizeof(track_id));
+            SetDrinkPutStatus(true);
+
+            if(IsDrinkPutStatusChanged()) {
+                SendJsonBool(app_context, "HEALTH-1/DrinkPutStatus", GetDrinkPutStatus());
+                if(!NoDisturbing() && IsPickupSetting()) {
+                    u16 track_id = FindPickupTrack();
+                    user_log("[DBG]health_thread: track index %d will be played", track_id);
+                    // stop last track before play new song
+                    ControllerBusSend(CONTROLLERBUS_CMD_EXIT, NULL, 0);
+                    ControllerBusSend(CONTROLLERBUS_CMD_PLAY, (unsigned char*)&track_id, sizeof(track_id));
+                }
             }
         }
         else if(OUTERTRIGGER_PUTDOWN == ot) {
-            SetPutDownStamp(true);
-            SetDrinkStamp(false);
+            SetDrinkPutStatus(false);
 
-            if(!NoDisturbing() && IsPutDownSetting()) {
-                startPutDownTimerGroup();
+            if(IsDrinkPutStatusChanged()) {
+                SendJsonBool(app_context, "HEALTH-1/DrinkPutStatus", GetDrinkPutStatus());
+                if(!NoDisturbing() && IsPutDownSetting()) {
+                    startPutDownTimerGroup();
+                }
             }
         }
 
-        mico_thread_msleep(500);
+        mico_thread_msleep(100);
 #elif
         if(mico_rtos_get_semaphore(&semaphore_getup, CHECK_CUPSTATUS_TIMEOUT)) {
             // key fliter
@@ -180,7 +185,7 @@ OSStatus HealthInit(app_context_t *app_context)
     user_log("[DBG]HealthInit: create semaphore_putdown success");
 #endif
 
-    //
+/*
     err = mico_init_timer(&timer_health_notify, 2*UpTicksPerSecond(), MOChangedNotification, app_context);
     require_noerr_action(err, exit, user_log("[ERR]HealthInit: create timer_health_notify failed"));
     user_log("[DBG]HealthInit: create timer_health_notify success");
@@ -188,11 +193,12 @@ OSStatus HealthInit(app_context_t *app_context)
     err = mico_start_timer(&timer_health_notify);
     require_noerr_action(err, exit, user_log("[ERR]HealthInit: start timer_health_notify failed"));
     user_log("[DBG]HealthInit: start timer_health_notify success");
+*/
 
     // start the health monitor thread
     err = mico_rtos_create_thread(&health_monitor_thread_handle, MICO_APPLICATION_PRIORITY, "health_monitor", 
                                   health_thread, STACK_SIZE_HEALTH_THREAD, 
-                                  NULL);
+                                  app_context);
     require_noerr_action( err, exit, user_log("[ERR]HealthInit: create health thread failed!"));
     user_log("[DBG]HealthInit: create health thread success!");
     
@@ -290,6 +296,7 @@ static void startPutDownTimerGroup()
         if(GetPutDownRemindDelay(idx) == 0) {
             u16 track_id = GetPutDownSelTrack(idx);
             user_log("[DBG]startPutDownTimerGroup: track index %d will be played", track_id);
+            ControllerBusSend(CONTROLLERBUS_CMD_EXIT, NULL, 0);
             ControllerBusSend(CONTROLLERBUS_CMD_PLAY, (unsigned char*)&track_id, sizeof(track_id));
         }
         else {
@@ -318,10 +325,12 @@ static void PutdownTimeout(void* arg)
     if(GetPutDownEnable(mng->index)) {
         u16 track_id = GetPutDownSelTrack(mng->index);
         user_log("[DBG]PutdownTimeout: track index %d will be played", track_id);
+        ControllerBusSend(CONTROLLERBUS_CMD_EXIT, NULL, 0);
         ControllerBusSend(CONTROLLERBUS_CMD_PLAY, (unsigned char*)&track_id, sizeof(track_id));
     }
 }
 
+/*
 static void MOChangedNotification(void *arg)
 {
     bool ret;
@@ -338,14 +347,10 @@ static void MOChangedNotification(void *arg)
 
     do {
         ret = false;
-        if(IsDrinkStampChanged()) {
-            ret = SendJsonBool(app_context, "HEALTH-1/DrinkStamp", GetDrinkStamp());
-        }
-        else if(IsPutDownStampChanged()) {
-            ret = SendJsonBool(app_context, "HEALTH-1/PutDownStamp", GetPutDownStamp());
-        }
+        
     } while(ret);
 }
+*/
 
 static void ScheduleTimeout(void* arg)
 {
@@ -371,6 +376,7 @@ static void ScheduleTimeout(void* arg)
     while(times--) {
         u16 track_id = GetScheduleSelTrack(mng->index);
         user_log("[DBG]ScheduleTimeout: track index %d will be played %d times", track_id, times);
+        ControllerBusSend(CONTROLLERBUS_CMD_EXIT, NULL, 0);
         ControllerBusSend(CONTROLLERBUS_CMD_PLAY, (unsigned char*)&track_id, sizeof(track_id));
     }
 }

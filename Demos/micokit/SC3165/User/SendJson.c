@@ -283,6 +283,7 @@ bool SendJsonSchedule(app_context_t *arg)
     return ret;
 }
 
+/*
 bool SendJsonAppointment(app_context_t *arg)
 {
     bool ret;
@@ -304,6 +305,7 @@ bool SendJsonAppointment(app_context_t *arg)
 
     return ret;
 }
+*/
 
 bool SendJsonTrack(app_context_t *arg, STrack* track)
 {

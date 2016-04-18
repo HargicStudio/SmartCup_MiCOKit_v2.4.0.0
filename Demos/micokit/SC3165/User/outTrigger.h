@@ -30,6 +30,8 @@ typedef enum EKey_t {
 
 void OuterTriggerInit(mico_gpio_irq_handler_t handler);
 EKey GetOuterTriggerStatus(void);
+void ResetF411(void);
+
 
    
 #ifdef __cplusplus

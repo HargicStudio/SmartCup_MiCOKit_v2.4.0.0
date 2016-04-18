@@ -27,6 +27,8 @@ History:
 
 #define KEY_CHECK_TIMES     (100/20)
 
+#define F411_RESET_PIN  F411_PIN_RST
+
 
 void OuterTriggerInit(mico_gpio_irq_handler_t handler)
 {
@@ -34,6 +36,8 @@ void OuterTriggerInit(mico_gpio_irq_handler_t handler)
     if (handler  != NULL) {
         MicoGpioEnableIRQ( KEY_PIN, IRQ_TRIGGER_BOTH_EDGES, handler, NULL );
     }
+
+    MicoGpioInitialize(F411_RESET_PIN, OUTPUT_OPEN_DRAIN_PULL_UP);
 
     user_log("[INF]OuterTriggerInit: initialize success");
 }
@@ -68,6 +72,13 @@ EKey GetOuterTriggerStatus(void)
     }
 
     return status[1];
+}
+
+void ResetF411(void)
+{
+    MicoGpioOutputLow(F411_RESET_PIN);
+    mico_thread_msleep(100);
+    MicoGpioOutputHigh(F411_RESET_PIN);
 }
 
 

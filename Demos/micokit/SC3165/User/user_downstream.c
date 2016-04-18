@@ -112,23 +112,7 @@ static bool ParseOMfromCloud(app_context_t *app_context, const char* string)
     if (NULL != get_json_object){
         json_object_object_foreach(get_json_object, key, val) {
             // parse
-            if(strcmp(key, "DEVICE-1/TempSwitch") == 0) {
-                SetTempSwitch(json_object_get_boolean(val));
-            }
-            else if(strcmp(key, "DEVICE-1/GetTempSwitch") == 0) {
-                if(json_object_get_boolean(val) == true) {
-                    SendJsonBool(app_context, "DEVICE-1/TempSwitch", GetTempSwitch());
-                }
-            }
-            else if(strcmp(key, "DEVICE-1/PowerOnDisplay") == 0) {
-                SetPowerOnDisplay(json_object_get_boolean(val));
-            }
-            else if(strcmp(key, "DEVICE-1/GetPowerOnDisplay") == 0) {
-                if(json_object_get_boolean(val) == true) {
-                    SendJsonBool(app_context, "DEVICE-1/PowerOnDisplay", GetPowerOnDisplay());
-                }
-            }
-            else if(strcmp(key, "LIGHTS-1/EnableNotifyLight") == 0) {
+            if(strcmp(key, "LIGHTS-1/EnableNotifyLight") == 0) {
                 SetEnableNotifyLight(json_object_get_boolean(val));
             }
             else if(strcmp(key, "LIGHTS-1/GetEnableNotifyLight") == 0) {
@@ -338,14 +322,6 @@ bool IsParameterChanged()
     bool set_action = false;
     u8 index;
 
-    if(IsTempSwitchChanged()) {
-        set_action = true;
-        user_log("[DBG]IsParameterChanged: TempSwitch change to %s", GetTempSwitch() ? "true" : "false");
-    }
-    if(IsPowerOnDisplayChanged()) {
-        set_action = true;
-        user_log("[DBG]IsParameterChanged: PowerOnDisplay change to %s", GetPowerOnDisplay() ? "true" : "false");
-    }
     if(IsEnableNotifyLightChanged()) {
         set_action = true;
         user_log("[DBG]IsParameterChanged: EnableNotifyLight change to %s", GetEnableNotifyLight() ? "true" : "false");

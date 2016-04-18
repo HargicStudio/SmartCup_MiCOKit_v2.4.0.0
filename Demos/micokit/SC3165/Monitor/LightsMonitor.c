@@ -90,7 +90,7 @@ static void lights_thread(void* arg)
         if(GetEnableNotifyLight()) {
             LedDutyInit((float)led[0], (float)led[1], (float)led[2]);
             LedPwmStart();
-            user_log("[DBG]lights_thread: R(%d) G(%d) B(%d)", led[0], led[1], led[2]);
+//            user_log("[DBG]lights_thread: R(%d) G(%d) B(%d)", led[0], led[1], led[2]);
 
             // type2
             if(led[countdown_led] == 0 || led[countup_led] >= MAX_LIGHT) {
@@ -110,7 +110,7 @@ static void lights_thread(void* arg)
 
             // stay in this colour for a while
             if(led[countup_led] % 10 == 0) {
-                mico_thread_msleep(400);
+                mico_thread_msleep(200);
             }
             else {
                 mico_thread_msleep(100);

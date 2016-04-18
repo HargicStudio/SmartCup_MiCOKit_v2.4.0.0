@@ -45,7 +45,6 @@ uint16_t g_track_query_idx;
 
 
 static void ControllerBusReceivingHandler(void* arg);
-static void PrintSerialData(uint8_t* ptr_buf, uint16_t len);
 static OSStatus ParseControllerBus(SCBusHeader* header, uint8_t* payload);
 static OSStatus ParseTFCardStatus(uint8_t* payload);
 static OSStatus ParseVolume(uint8_t* payload);
@@ -96,7 +95,7 @@ OSStatus ControllerBusSend(ECBusCmd cmd, unsigned char *inData, unsigned int inD
     }
 
     user_log("[DBG]ControllerBusSend: send with following data");
-    PrintSerialData(inBuf, bufLen);
+    print_serial_data(inBuf, bufLen);
 
     if(inBuf != NULL) free(inBuf);
     
@@ -119,7 +118,7 @@ static void ControllerBusReceivingHandler(void* arg)
         }
 
         user_log("[DBG]ControllerBusReceivingHandler: receive header length %d", received_len);
-        PrintSerialData(recv_buffer, received_len);
+        print_serial_data(recv_buffer, received_len);
 
         if(received_len != sizeof(SCBusHeader)) {
             user_log("[ERR]ControllerBusReceivingHandler: received header length do not match");
@@ -140,9 +139,13 @@ static void ControllerBusReceivingHandler(void* arg)
 
         user_log("[DBG]ControllerBusReceivingHandler: get datalen %d checksum 0x%02x", datalen, checksum);
 
-        // TODO: datalen should not large than (CONTROLLERBUS_RECV_BUFFER_LENGTH - sizeof(SCBusHeader))
-        if(datalen >= (CONTROLLERBUS_RECV_BUFFER_LENGTH - sizeof(SCBusHeader))) {
-            user_log("[ERR]ControllerBusReceivingHandler: there is too much data and receive buffer is overflow");
+        if(datalen == 0) {
+            user_log("[ERR]ControllerBusReceivingHandler: there is no data");
+            continue;
+        }
+        else if(datalen >= (CONTROLLERBUS_RECV_BUFFER_LENGTH - sizeof(SCBusHeader))) {
+            user_log("[ERR]ControllerBusReceivingHandler: there is too much data and receive buffer %d is overflow", 
+                    CONTROLLERBUS_RECV_BUFFER_LENGTH);
             continue;
         }
 
@@ -156,7 +159,7 @@ static void ControllerBusReceivingHandler(void* arg)
         }
         
         user_log("[DBG]ControllerBusReceivingHandler: receive data length %d", received_len);
-        PrintSerialData(payload, received_len);
+        print_serial_data(payload, received_len);
 
         if(received_len != datalen) {
             user_log("[ERR]ControllerBusReceivingHandler: received data length do not match");
@@ -272,8 +275,8 @@ static OSStatus ParseVolume(uint8_t* payload)
 {
     uint8_t* volume = payload;
 
-    if(*volume != GetVolume()) {
-        user_log("[ERR]ParseVolume: set volume %d failed, current volume %d", GetVolume(), *volume);
+    if(*volume != 0) {
+        user_log("[ERR]ParseVolume: set volume status %d failed", *volume);
     }
     else {
         user_log("[DBG]ParseVolume: set volume %d success", *volume);
@@ -284,17 +287,18 @@ static OSStatus ParseVolume(uint8_t* payload)
 
 static OSStatus ParseTFCardStatus(uint8_t* payload)
 {
-    uint16_t* payload_idx = (uint16_t*)payload;
+    uint8_t* tfstatus = payload;
+    uint16_t* tf = (uint16_t*)(payload + sizeof(uint8_t));
 
-    if(payload_idx[0] != 0) {
+    if(*tfstatus != 0) {
         SetTFStatus(false);
     }
     else {
         SetTFStatus(true);
     }
 
-    SetTFCapacity(payload_idx[1]);
-    SetTFFree(payload_idx[2]);
+    SetTFCapacity(tf[0]);
+    SetTFFree(tf[1]);
 
     return kNoErr;
 }
@@ -324,23 +328,6 @@ bool ControllerBusInit(void)
     user_log("[DBG]ControllerBusInit: controller bus initialize success");
 
     return true;
-}
-
-
-#define DATA_NUMBER_PRE_LINE    8
-
-static void PrintSerialData(uint8_t* ptr_buf, uint16_t len)
-{
-    uint8_t print_idx;
-
-    user_log("[DBG]PrintSerialData: serial data:");
-    for(print_idx = 0; print_idx < len; print_idx++) {
-        if((print_idx % DATA_NUMBER_PRE_LINE) == 0) {
-            printf("\r\ntrack %03d:", print_idx);
-        }
-        printf(" %02x", *(ptr_buf + print_idx));
-    }
-    printf("\r\n");
 }
 
 

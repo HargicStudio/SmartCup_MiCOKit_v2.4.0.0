@@ -47,6 +47,15 @@ History:
 #define SCHEDULE_REMINDTIMES_BIT        (1<<4)
 
 
+// used for storage buffer
+static SLedConf sLedConf_temp;
+static SNoDisturbingTime sNoDisturbing_temp;
+static SPickup sPickup_temp[MAX_DEPTH_PICKUP];
+static SPutdown sPutdown_temp[MAX_DEPTH_PUTDOWN];
+static SImmediate sImmediate_temp[MAX_DEPTH_IMMEDIATE];
+static SSchedule sSchedule_temp[MAX_DEPTH_SCHEDULE];
+
+
 SDevice 	gDevice;
 SLight  	gLight;
 SMusic		gMusic;
@@ -57,36 +66,37 @@ SPutdown	gPutdown[MAX_DEPTH_PUTDOWN];
 SImmediate	gImmediate[MAX_DEPTH_IMMEDIATE];
 SSchedule	gSchedule[MAX_DEPTH_SCHEDULE];
 
-// used for storage buffer
-static SLedConf sLedConf_temp;
-static SNoDisturbingTime sNoDisturbing_temp;
-static SPickup sPickup_temp[MAX_DEPTH_PICKUP];
-static SPutdown sPutdown_temp[MAX_DEPTH_PUTDOWN];
-static SImmediate sImmediate_temp[MAX_DEPTH_IMMEDIATE];
-static SSchedule sSchedule_temp[MAX_DEPTH_SCHEDULE];
-
+// DEVICE-1
 static bool isPowerChanged = false;
 static bool isLowPowerAlarmChanged = false;
 static bool isSignalStrenghChanged = false;
-static bool isTemperatureChanged = false;
-static bool isTempSwitchChanged = false;
-static bool isPowerOnDisplayChanged = false;
 static bool isTFStatusChanged = false;
 static bool isTFCapacityChanged = false;
 static bool isTFFreeChanged = false;
+
+// LIGHTS-1
 static bool isEnableNotifyLightChanged = false;
 static bool isLedSwitchChanged = false;
 static u8   isLedConfChanged = 0;
+
+// MUSIC-1
 static bool isVolumeChanged = false;
 static bool isDownLoadRateChanged = false;
-static bool isDrinkStampChanged = false;
-static bool isPutDownStampChanged = false;
+
+// HEALTH-1
+static bool isDrinkPutStatusChanged = false;
 static bool isIfNoDisturbingChanged = false;
 static u8   isNoDisturbingTimeChanged = 0;
 static u8   isPickupChanged[MAX_DEPTH_PICKUP] = {0};
 static u8   isPutdownChanged[MAX_DEPTH_PUTDOWN] = {0};
 static u8   isImmediateChanged[MAX_DEPTH_IMMEDIATE] = {0};
 static u8   isScheduleChanged[MAX_DEPTH_SCHEDULE] = {0};
+
+// HEATER-1
+/*
+static bool isTemperatureChanged = false;
+static bool isTempSwitchChanged = false;
+*/
 
 
 static mico_mutex_t omMutex = NULL;
@@ -118,6 +128,9 @@ void MOInit()
     // init OM, get value from flash
     OMFactoryInit();
 }
+
+
+// *** DEVICE-1 ***
 
 void SetPower(u8 power)
 {
@@ -200,93 +213,6 @@ bool IsSignalStrenghChanged()
     
     bool flag = isSignalStrenghChanged;
     isSignalStrenghChanged = false;
-
-    mico_rtos_unlock_mutex(&omMutex);
-    
-    return flag;
-}
-
-void SetTemperature(float value)
-{
-    mico_rtos_lock_mutex(&omMutex);
-
-    if(value != gDevice.temperature) {
-        gDevice.temperature = value;
-        isTemperatureChanged = true;
-    }
-
-    mico_rtos_unlock_mutex(&omMutex);
-}
-
-float GetTemperature()
-{
-    return gDevice.temperature;
-}
-
-bool IsTemperatureChanged()
-{
-    mico_rtos_lock_mutex(&omMutex);
-    
-    bool flag = isTemperatureChanged;
-    isTemperatureChanged = false;
-
-    mico_rtos_unlock_mutex(&omMutex);
-    
-    return flag;
-}
-
-void SetTempSwitch(bool flag)
-{
-    mico_rtos_lock_mutex(&omMutex);
-
-    if(flag != gDevice.tempSwitch) {
-        gDevice.tempSwitch = flag;
-        isTempSwitchChanged = true;
-    }
-
-    mico_rtos_unlock_mutex(&omMutex);
-}
-
-bool GetTempSwitch()
-{
-    return gDevice.tempSwitch;
-}
-
-bool IsTempSwitchChanged()
-{
-    mico_rtos_lock_mutex(&omMutex);
-    
-    bool flag = isTempSwitchChanged;
-    isTempSwitchChanged = false;
-
-    mico_rtos_unlock_mutex(&omMutex);
-    
-    return flag;
-}
-
-void SetPowerOnDisplay(bool flag)
-{
-    mico_rtos_lock_mutex(&omMutex);
-
-    if(flag != gDevice.powerOnDisplay) {
-        gDevice.powerOnDisplay = flag;
-        isPowerOnDisplayChanged = true;
-    }
-
-    mico_rtos_unlock_mutex(&omMutex);
-}
-
-bool GetPowerOnDisplay()
-{
-    return gDevice.powerOnDisplay;
-}
-
-bool IsPowerOnDisplayChanged()
-{
-    mico_rtos_lock_mutex(&omMutex);
-    
-    bool flag = isPowerOnDisplayChanged;
-    isPowerOnDisplayChanged = false;
 
     mico_rtos_unlock_mutex(&omMutex);
     
@@ -379,6 +305,9 @@ bool IsTFFreeChanged()
     
     return flag;
 }
+
+
+// *** LIGHTS-1 ***
 
 void SetEnableNotifyLight(bool flag)
 {
@@ -500,6 +429,8 @@ bool IsLedConfChanged()
     return ret;
 }
 
+// *** MUSIC-1 ***
+
 void SetVolume(u8 value)
 {
     mico_rtos_lock_mutex(&omMutex);
@@ -558,58 +489,32 @@ bool IsDownLoadRateChanged()
     return flag;
 }
 
-void SetDrinkStamp(bool flag)
+
+// *** HEALTH-1 ***
+
+void SetDrinkPutStatus(bool flag)
 {
     mico_rtos_lock_mutex(&omMutex);
 
-    if(flag != gHealth.drinkStamp) {
-        gHealth.drinkStamp = flag;
-        isDrinkStampChanged = true;
+    if(flag != gHealth.drinkPutStatus) {
+        gHealth.drinkPutStatus = flag;
+        isDrinkPutStatusChanged = true;
     }
 
     mico_rtos_unlock_mutex(&omMutex);
 }
 
-bool GetDrinkStamp()
+bool GetDrinkPutStatus()
 {
-    return gHealth.drinkStamp;
+    return gHealth.drinkPutStatus;
 }
 
-bool IsDrinkStampChanged()
+bool IsDrinkPutStatusChanged()
 {
     mico_rtos_lock_mutex(&omMutex);
     
-    bool flag = isDrinkStampChanged;
-    isDrinkStampChanged = false;
-
-    mico_rtos_unlock_mutex(&omMutex);
-    
-    return flag;
-}
-
-void SetPutDownStamp(bool flag)
-{
-    mico_rtos_lock_mutex(&omMutex);
-
-    if(flag != gHealth.putDownStamp) {
-        gHealth.putDownStamp = flag;
-        isPutDownStampChanged = true;
-    }
-
-    mico_rtos_unlock_mutex(&omMutex);
-}
-
-bool GetPutDownStamp()
-{
-    return gHealth.putDownStamp;
-}
-
-bool IsPutDownStampChanged()
-{
-    mico_rtos_lock_mutex(&omMutex);
-    
-    bool flag = isPutDownStampChanged;
-    isPutDownStampChanged = false;
+    bool flag = isDrinkPutStatusChanged;
+    isDrinkPutStatusChanged = false;
 
     mico_rtos_unlock_mutex(&omMutex);
     
@@ -1029,6 +934,68 @@ bool IsScheduleChanged(u8 index)
 
     return ret;
 }
+
+
+// *** HEATER-1 ***
+/*
+void SetTemperature(float value)
+{
+    mico_rtos_lock_mutex(&omMutex);
+
+    if(value != gDevice.temperature) {
+        gDevice.temperature = value;
+        isTemperatureChanged = true;
+    }
+
+    mico_rtos_unlock_mutex(&omMutex);
+}
+
+float GetTemperature()
+{
+    return gDevice.temperature;
+}
+
+bool IsTemperatureChanged()
+{
+    mico_rtos_lock_mutex(&omMutex);
+    
+    bool flag = isTemperatureChanged;
+    isTemperatureChanged = false;
+
+    mico_rtos_unlock_mutex(&omMutex);
+    
+    return flag;
+}
+
+void SetTempSwitch(bool flag)
+{
+    mico_rtos_lock_mutex(&omMutex);
+
+    if(flag != gDevice.tempSwitch) {
+        gDevice.tempSwitch = flag;
+        isTempSwitchChanged = true;
+    }
+
+    mico_rtos_unlock_mutex(&omMutex);
+}
+
+bool GetTempSwitch()
+{
+    return gDevice.tempSwitch;
+}
+
+bool IsTempSwitchChanged()
+{
+    mico_rtos_lock_mutex(&omMutex);
+    
+    bool flag = isTempSwitchChanged;
+    isTempSwitchChanged = false;
+
+    mico_rtos_unlock_mutex(&omMutex);
+    
+    return flag;
+}
+*/
 
 // end of file
 

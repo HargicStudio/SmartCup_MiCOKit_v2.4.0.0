@@ -33,6 +33,7 @@
 #include "DeviceMonitor.h"
 #include "HealthMonitor.h"
 #include "LightsMonitor.h"
+#include "MusicMonitor.h"
 #include "controllerBus.h"
 
 
@@ -68,13 +69,15 @@ OSStatus user_main( app_context_t * const app_context )
   uint16_t datalen;
 
   require(app_context, exit);
-
-  // Initialize with red LED
   
   OuterTriggerInit(NULL);
-  TemperatureInit();
+//  TemperatureInit();  // will be support in release 2
   BatteryInit();
   ControllerBusInit();
+
+  // reset f411 and wait until it startup
+  ResetF411();
+  mico_thread_msleep(500);
 
 #if 1
   MOInit();
@@ -136,11 +139,6 @@ exit:
   }
   mico_rtos_delete_thread(NULL);  // delete current thread
   return err;
-}
-
-void KeyHandlerIRQ(void)
-{
-
 }
 
 OSStatus SntpInit(app_context_t * const app_context)

@@ -28,6 +28,22 @@ extern mico_mutex_t user_debug_mutex;
                                     mico_rtos_unlock_mutex(&user_debug_mutex); \
                                 }while(0)
 
+
+#define DATA_NUMBER_PRE_LINE    8
+
+#define print_serial_data(ptr, len)     do {    \
+                                            mico_rtos_lock_mutex(&user_debug_mutex); \
+                                            printf("serial data:"); \
+                                            for(int ptridx = 0; ptridx < len; ptridx++) {   \
+                                                if((ptridx % DATA_NUMBER_PRE_LINE) == 0) {  \
+                                                    printf("\r\ntrack %03d:", ptridx);  \
+                                                }   \
+                                                printf(" %02x", *(ptr + ptridx));   \
+                                            }   \
+                                            printf("\r\n"); \
+                                            mico_rtos_unlock_mutex(&user_debug_mutex); \
+                                        } while(0)
+
 #endif // USER_DEBUG
 
 

@@ -33,6 +33,9 @@ History:
 
 mico_timer_t timer_device_notify;
 
+// device notify interval, unit: second
+u8 device_notify_interval = 60;
+
 
 static void DeviceEstimator(void* arg);
 static void MOChangedNotification(app_context_t *app_context);
@@ -49,7 +52,7 @@ void DeviceInit(app_context_t *app_context)
 {
     OSStatus err;
 
-    err = mico_init_timer(&timer_device_notify, 5*UpTicksPerSecond(), DeviceEstimator, app_context);
+    err = mico_init_timer(&timer_device_notify, device_notify_interval*UpTicksPerSecond(), DeviceEstimator, app_context);
     if(kNoErr != err) {
         user_log("[ERR]DeviceInit: create timer_device_notify failed");
     }
@@ -233,11 +236,9 @@ static void SignalStrengthNotification()
       return ;
     }
 
-    // will never reach 100 percent
-    if(wifi_link_status.wifi_strength >= 100) {
-        wifi_link_status.wifi_strength = 99;
-    }
-    link_strength = wifi_link_status.wifi_strength / 10;
+    // will never reach 100 percent, range from 0 to 5
+    wifi_link_status.wifi_strength += 18;
+    link_strength = wifi_link_status.wifi_strength / 20;
 
     if(GetSignalStrengh() != link_strength) {
         SetSignalStrengh(link_strength);
@@ -262,7 +263,7 @@ static void TemperatureNotification()
 
 static void TFCardNotification()
 {
-    
+    ControllerBusSend(CONTROLLERBUS_CMD_TFSTATUS, NULL, 0);
 }
 
 

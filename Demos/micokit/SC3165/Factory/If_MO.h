@@ -21,14 +21,12 @@ History:
 
 typedef struct SDevice_t {
     u8      power;
+    u8      reserve1;
     i16     signalStrength;
-    float   temperature;
     float   tfCapacity;
     float   tfFree;
     bool    lowPowerAlarm;
-    bool    powerOnDisplay;
     bool    tfStatus;
-    bool    tempSwitch;
 } SDevice;
 
    
@@ -36,6 +34,7 @@ typedef struct SLedConf_t {
     u8      red;
     u8      green;
     u8      blue;
+    u8      reserve1;
 } SLedConf;
 
 typedef struct SLight_t {
@@ -71,8 +70,7 @@ typedef struct SNoDisturbingTime_t {
 
 typedef struct SHealth_t {
     SNoDisturbingTime noDisturbingTime;
-    bool    drinkStamp;
-    bool    putDownStamp;
+    bool    drinkPutStatus;
     bool    ifNoDisturbing;
 } SHealth;
 
@@ -82,6 +80,7 @@ typedef struct SHealth_t {
 typedef struct SPickup_t {
     u16     selTrack;
     bool    enable;
+    u8      reseve1;
 } SPickup;
 
 
@@ -91,6 +90,7 @@ typedef struct SPutdown_t {
     u16     remindDelay;
     u16     selTrack;
     bool    enable;
+    u8      reseve1;
 } SPutdown;
 
 
@@ -99,6 +99,7 @@ typedef struct SPutdown_t {
 typedef struct SImmediate_t {
     u16     selTrack;
     bool    enable;
+    u8      reseve1;
 } SImmediate;
 
 
@@ -115,6 +116,8 @@ typedef struct SSchedule_t {
 
 void MOInit();
 
+// DEVICE-1
+
 void SetPower(u8 power);
 u8 GetPower();
 bool IsPowerChanged();
@@ -127,18 +130,6 @@ void SetSignalStrengh(i16 value);
 i16 GetSignalStrengh();
 bool IsSignalStrenghChanged();
 
-void SetTemperature(float value);
-float GetTemperature();
-bool IsTemperatureChanged();
-
-void SetTempSwitch(bool flag);
-bool GetTempSwitch();
-bool IsTempSwitchChanged();
-
-void SetPowerOnDisplay(bool flag);
-bool GetPowerOnDisplay();
-bool IsPowerOnDisplayChanged();
-
 void SetTFStatus(bool flag);
 bool GetTFStatus();
 bool IsTFStatusChanged();
@@ -150,6 +141,8 @@ bool IsTFCapacityChanged();
 void SetTFFree(float value);
 float GetTFFree();
 bool IsTFFreeChanged();
+
+// LIGHTS-1
 
 void SetEnableNotifyLight(bool flag);
 bool GetEnableNotifyLight();
@@ -167,6 +160,8 @@ void SetBlueConf(u8 value);
 u8 GetBlueConf();
 bool IsLedConfChanged();
 
+// MUSIC-1
+
 void SetVolume(u8 value);
 u8 GetVolume();
 bool IsVolumeChanged();
@@ -175,13 +170,11 @@ void SetDownLoadRate(u8 value);
 u8 GetDownLoadRate();
 bool IsDownLoadRateChanged();
 
-void SetDrinkStamp(bool flag);
-bool GetDrinkStamp();
-bool IsDrinkStampChanged();
+// HEALTH-1
 
-void SetPutDownStamp(bool flag);
-bool GetPutDownStamp();
-bool IsPutDownStampChanged();
+void SetDrinkPutStatus(bool flag);
+bool GetDrinkPutStatus();
+bool IsDrinkPutStatusChanged();
 
 void SetIfNoDisturbing(bool flag);
 bool GetIfNoDisturbing();
@@ -228,6 +221,17 @@ u8 GetScheduleRemindMinute(u8 index);
 void SetScheduleRemindTimes(u8 index, u8 value);
 u8 GetScheduleRemindTimes(u8 index);
 bool IsScheduleChanged(u8 index);
+
+
+// HEATER-1
+
+void SetTemperature(float value);
+float GetTemperature();
+bool IsTemperatureChanged();
+
+void SetTempSwitch(bool flag);
+bool GetTempSwitch();
+bool IsTempSwitchChanged();
 
 
    
