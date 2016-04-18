@@ -42,7 +42,25 @@
                                       mico_rtos_lock_mutex( &stdio_tx_mutex );\
                                       printf("[%d][%s: %s:%4d] " M "\r\n", mico_get_time(), N, SHORT_FILE, __LINE__, ##__VA_ARGS__);\
                                       mico_rtos_unlock_mutex( &stdio_tx_mutex );}while(0==1)
-                                        
+
+
+    #define DATA_NUMBER_PRE_LINE    8
+    
+    #define print_serial_data(ptr, len) do {    \
+                                            if (mico_debug_enabled==0)break;\
+                                            mico_rtos_lock_mutex(&stdio_tx_mutex); \
+                                            printf("\r\nserial data:"); \
+                                            int ptridx; \
+                                            for(ptridx = 0; ptridx < len; ptridx++) {   \
+                                                if((ptridx % DATA_NUMBER_PRE_LINE) == 0) {  \
+                                                    printf("\r\ntrack %03d:", ptridx);  \
+                                                }   \
+                                                printf(" %02x", *(ptr + ptridx));   \
+                                            }   \
+                                            printf("\r\n\r\n"); \
+                                            mico_rtos_unlock_mutex(&stdio_tx_mutex); \
+                                        } while(0)
+
     #define debug_print_assert(A,B,C,D,E,F) do {if (mico_debug_enabled==0)break;\
                                                      mico_rtos_lock_mutex( &stdio_tx_mutex );\
                                                      printf("[%d][MICO:%s:%s:%4d] **ASSERT** %s""\r\n", mico_get_time(), D, F, E, (C!=NULL) ? C : "" );\
