@@ -753,7 +753,7 @@
         </option>
         <option>
           <name>JLinkInitialSpeed</name>
-          <state>1000</state>
+          <state>32</state>
         </option>
         <option>
           <name>CCDoJlinkMultiTarget</name>
@@ -904,7 +904,7 @@
         </option>
         <option>
           <name>CCSwoClockAuto</name>
-          <state>0</state>
+          <state>1</state>
         </option>
         <option>
           <name>CCSwoClockEdit</name>

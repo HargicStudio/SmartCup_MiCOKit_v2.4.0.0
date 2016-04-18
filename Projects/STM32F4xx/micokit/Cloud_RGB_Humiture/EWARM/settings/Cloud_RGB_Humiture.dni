@@ -9,12 +9,35 @@ TriggerName=main
 LimitSize=0
 ByteLimit=50
 [DebugChecksum]
-Checksum=1572110911
+Checksum=-1087545271
 [Exceptions]
 StopOnUncaught=_ 0
 StopOnThrow=_ 0
 [CodeCoverage]
 Enabled=_ 0
+[CallStack]
+ShowArgs=0
+[Disassembly]
+MixedMode=1
+[JLinkDriver]
+CStepIntDis=_ 0
+[SWOTraceHWSettings]
+OverrideDefaultClocks=0
+CpuClock=72000000
+ClockAutoDetect=0
+ClockWanted=2000000
+JtagSpeed=2000000
+Prescaler=36
+TimeStampPrescIndex=0
+TimeStampPrescData=0
+PcSampCYCTAP=1
+PcSampPOSTCNT=15
+PcSampIndex=0
+DataLogMode=0
+ITMportsEnable=0
+ITMportsTermIO=0
+ITMportsLogFile=0
+ITMlogFile=$PROJ_DIR$\ITM.log
 [SWOTraceWindow]
 PcSampling=0
 InterruptLogs=0
@@ -30,7 +53,7 @@ GraphEnabled=0
 ShowTimeLog=1
 ShowTimeSum=0
 Title_0=I0
-Symbol_0=0 4 213
+Symbol_0=0 4 1
 LiveEnabled=0
 LiveFile=PowerLogLive.log
 [DataLog]
@@ -60,31 +83,8 @@ Category=_ 0
 [TermIOLog]
 LoggingEnabled=_ 0
 LogFile=_ ""
-[CallStack]
-ShowArgs=0
-[Disassembly]
-MixedMode=1
 [CallStackLog]
 Enabled=0
-[JLinkDriver]
-CStepIntDis=_ 0
-[SWOTraceHWSettings]
-OverrideDefaultClocks=0
-CpuClock=72000000
-ClockAutoDetect=0
-ClockWanted=2000000
-JtagSpeed=2000000
-Prescaler=36
-TimeStampPrescIndex=0
-TimeStampPrescData=0
-PcSampCYCTAP=1
-PcSampPOSTCNT=15
-PcSampIndex=0
-DataLogMode=0
-ITMportsEnable=0
-ITMportsTermIO=0
-ITMportsLogFile=0
-ITMlogFile=$PROJ_DIR$\ITM.log
 [PowerProbe]
 Frequency=10000
 Probe0=I0
@@ -100,5 +100,7 @@ mode=0
 [Breakpoints2]
 Count=0
 [Aliases]
-Count=0
+A0=_ "D:\HargicStudio\SmartCup_MiCOKit_v2.4.0.0\SDK_MiCOKit_v2.4.0.0\Platform\MCU\STM32F4xx\peripherals\Libraries\STM32F4xx_StdPeriph_Driver\src\stm32f4xx_rtc.c" ""
+A1=_ "D:\HargicStudio\SmartCup_MiCOKit_v2.4.0.0\SDK_MiCOKit_v2.4.0.0\libraries\utilities\json_c\linkhash.c" ""
+Count=2
 SuppressDialog=0

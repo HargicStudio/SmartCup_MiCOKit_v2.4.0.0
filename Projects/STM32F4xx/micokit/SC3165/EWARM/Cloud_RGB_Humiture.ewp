@@ -1016,6 +1016,9 @@
       <file>
         <name>$PROJ_DIR$\..\..\..\..\..\Demos\micokit\SC3165\Monitor\LightsMonitor.c</name>
       </file>
+      <file>
+        <name>$PROJ_DIR$\..\..\..\..\..\Demos\micokit\SC3165\Monitor\MusicMonitor.c</name>
+      </file>
     </group>
     <group>
       <name>OMFactory</name>
@@ -1030,6 +1033,9 @@
       <name>User</name>
       <file>
         <name>$PROJ_DIR$\..\..\..\..\..\Demos\micokit\SC3165\User\battery.c</name>
+      </file>
+      <file>
+        <name>$PROJ_DIR$\..\..\..\..\..\Demos\micokit\SC3165\User\controllerBus.c</name>
       </file>
       <file>
         <name>$PROJ_DIR$\..\..\..\..\..\Demos\micokit\SC3165\User\led.c</name>
@@ -1054,6 +1060,9 @@
       </file>
       <file>
         <name>$PROJ_DIR$\..\..\..\..\..\Demos\micokit\SC3165\User\user_main.c</name>
+      </file>
+      <file>
+        <name>$PROJ_DIR$\..\..\..\..\..\Demos\micokit\SC3165\User\user_uart.c</name>
       </file>
     </group>
   </group>
