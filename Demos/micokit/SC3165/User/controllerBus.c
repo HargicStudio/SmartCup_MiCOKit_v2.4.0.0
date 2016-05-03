@@ -12,17 +12,13 @@ History:
 #include "user_uart.h"
 #include "If_MO.h"
 #include "MusicMonitor.h"
+#include "AaInclude.h"
 
 
-#ifdef DEBUG
-  #define user_log(M, ...) custom_log("ControllerBus", M, ##__VA_ARGS__)
-  #define user_log_trace() custom_log_trace("ControllerBus")
-#else
-#ifdef USER_DEBUG
-  #define user_log(M, ...) user_debug("ControllerBus", M, ##__VA_ARGS__)
-  #define user_log_trace() (void)0
-#endif
-#endif
+
+#define user_log(M, ...) custom_log("ControllerBus", M, ##__VA_ARGS__)
+#define user_log_trace() custom_log_trace("ControllerBus")
+
 
 
 #define CONTROLLERBUS_STACK_SIZE_RINGBUFFER_THREAD    0x400
@@ -38,12 +34,15 @@ bool is_serial_data_print_open = true;
 
 uint8_t recv_buffer[CONTROLLERBUS_RECV_BUFFER_LENGTH];
 
-static mico_thread_t bus_recv_ringbuffer_handle = NULL;
+static mico_thread_t bus_recv_handle = NULL;
+static mico_thread_t bus_send_handle = NULL;
 
 uint16_t g_track_num;
 uint16_t g_track_query_idx;
 
 
+static void ControllerBusSendandler(void* arg);
+static OSStatus HandleTfStatusRequest(void* msg_ptr);
 static void ControllerBusReceivingHandler(void* arg);
 static OSStatus ParseControllerBus(SCBusHeader* header, uint8_t* payload);
 static OSStatus ParseTFCardStatus(uint8_t* payload);
@@ -99,6 +98,43 @@ OSStatus ControllerBusSend(ECBusCmd cmd, unsigned char *inData, unsigned int inD
 
     if(inBuf != NULL) free(inBuf);
     
+    return kNoErr;
+}
+
+static void ControllerBusSendandler(void* arg)
+{
+    void* msg_ptr;
+    SMsgHeader* msg;
+    
+    while(1) {
+        msg_ptr = AaSysComReceiveHandler(MsgQueue_ControllerBusSend, MICO_WAIT_FOREVER);
+        msg = (SMsgHeader*)msg_ptr;
+
+        AaSysLogPrint(LOGLEVEL_DBG, "receive message id 0x%04x", msg->msg_id);
+
+        switch(msg->msg_id) {
+            case API_MESSAGE_ID_TFSTATUS_REQ: HandleTfStatusRequest(msg_ptr); break;
+            default: 
+                AaSysLogPrint(LOGLEVEL_ERR, "no message id 0x%04x", msg->msg_id); 
+                break;
+        }
+        
+        if(msg_ptr != NULL) AaSysComDestory(msg_ptr);
+    }
+}
+
+static OSStatus HandleTfStatusRequest(void* msg_ptr)
+{
+    SMsgHeader* msg = (SMsgHeader*)msg_ptr;
+
+    if(msg->pl_size != sizeof(ApiTfStatusReq)) {
+        AaSysLogPrint(LOGLEVEL_ERR, "pl_size %d isn't match sizeof(ApiTfStatusReq) %d", 
+                msg->pl_size, sizeof(ApiTfStatusReq));
+        return kInProgressErr;
+    }
+
+    ControllerBusSend(CONTROLLERBUS_CMD_TFSTATUS, NULL, 0);
+
     return kNoErr;
 }
 
@@ -180,7 +216,7 @@ static void ControllerBusReceivingHandler(void* arg)
         if(data_checksum != checksum) {
             user_log("[ERR]ControllerBusReceivingHandler: data checksum 0x%02x do not match received checksum 0x%02x, dropping", 
                     data_checksum, checksum);
-//            continue;
+            continue;
         }
 #endif
 
@@ -290,15 +326,28 @@ static OSStatus ParseTFCardStatus(uint8_t* payload)
     uint8_t* tfstatus = payload;
     uint16_t* tf = (uint16_t*)(payload + sizeof(uint8_t));
 
-    if(*tfstatus != 0) {
-        SetTFStatus(false);
-    }
-    else {
-        SetTFStatus(true);
+    void* msg;
+    ApiTfStatusResp* msg_pl;
+
+    msg = AaSysComCreate(API_MESSAGE_ID_TFSTATUS_RESP, MsgQueue_ControllerBusSend, MsgQueue_DeviceHandler, sizeof(ApiTfStatusResp));
+    if(msg == NULL) {
+        AaSysLogPrint(LOGLEVEL_ERR, "API_MESSAGE_ID_TFSTATUS_RESP create failed");
+        return kNoMemoryErr;
     }
 
-    SetTFCapacity(tf[0]);
-    SetTFFree(tf[1]);
+    msg_pl = AaSysComGetPayload(msg);
+    if(*tfstatus != 0) {
+        msg_pl->status = false;
+    }
+    else {
+        msg_pl->status = true;
+    }
+    msg_pl->capacity = tf[0];
+    msg_pl->free = tf[1];
+
+    if(kNoErr != AaSysComSend(msg)) {
+        AaSysLogPrint(LOGLEVEL_ERR, "API_MESSAGE_ID_TFSTATUS_RESP send failed");
+    }
 
     return kNoErr;
 }
@@ -312,20 +361,29 @@ bool ControllerBusInit(void)
 
     err = user_uartInit();
     if(err != kNoErr) {
-        user_log("[ERR]ControllerBusInit: mico uart initialize failed");
+        AaSysLogPrint(LOGLEVEL_ERR, "mico uart initialize failed");
         return false;
     }
     
     // start the uart receive thread to handle controller bus data
-    err = mico_rtos_create_thread(&bus_recv_ringbuffer_handle, MICO_APPLICATION_PRIORITY, "BusRingBufRecv", 
+    err = mico_rtos_create_thread(&bus_recv_handle, MICO_APPLICATION_PRIORITY, "BusRingBufRecv", 
                                 ControllerBusReceivingHandler, CONTROLLERBUS_STACK_SIZE_RINGBUFFER_THREAD, 
                                 NULL);
     if(err != kNoErr) {
-        user_log("[ERR]ControllerBusInit: create controller bus receiving thread failed");
+        AaSysLogPrint(LOGLEVEL_ERR, "create controller bus receiving thread failed");
         return false;
     }
 
-    user_log("[DBG]ControllerBusInit: controller bus initialize success");
+    // start the uart send thread to handle request message
+    err = mico_rtos_create_thread(&bus_send_handle, MICO_APPLICATION_PRIORITY, "BusRequestSend", 
+                                ControllerBusSendandler, CONTROLLERBUS_STACK_SIZE_RINGBUFFER_THREAD, 
+                                NULL);
+    if(err != kNoErr) {
+        AaSysLogPrint(LOGLEVEL_ERR, "create controller bus sending thread failed");
+        return false;
+    }
+
+    AaSysLogPrint(LOGLEVEL_DBG, "controller bus initialize success");
 
     return true;
 }

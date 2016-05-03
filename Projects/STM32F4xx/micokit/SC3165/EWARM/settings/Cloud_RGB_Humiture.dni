@@ -9,7 +9,7 @@ TriggerName=main
 LimitSize=0
 ByteLimit=50
 [DebugChecksum]
-Checksum=1510922409
+Checksum=-14118641
 [Exceptions]
 StopOnUncaught=_ 0
 StopOnThrow=_ 0
@@ -78,10 +78,6 @@ GraphEnabled=0
 ShowTimeLog=1
 ShowTimeSum=1
 SumSortOrder=0
-[Log file]
-LoggingEnabled=_ 0
-LogFile=_ ""
-Category=_ 0
 [TermIOLog]
 LoggingEnabled=_ 0
 LogFile=_ ""
@@ -97,12 +93,18 @@ Mode=3
 Graph=0
 Symbiont=0
 Exclusions=
+[RecentFlashDownload]
+Path=D:\DaMai_Studio\“Ù¿÷±≠\with Ω®π‚\411“Ù¿÷\STM32F411.hex
+[Log file]
+LoggingEnabled=_ 0
+LogFile=_ ""
+Category=_ 0
 [Disassemble mode]
 mode=0
 [Breakpoints2]
-Bp0=_ 0 "EMUL_CODE" "{$PROJ_DIR$\..\..\..\..\..\Demos\micokit\SC3165\User\controllerBus.c}.108.1" 0 0 1 "" 0 "" 0
-Bp1=_ 0 "EMUL_CODE" "{$PROJ_DIR$\..\..\..\..\..\Demos\micokit\SC3165\User\controllerBus.c}.199.1" 0 0 1 "" 0 "" 0
-Bp2=_ 0 "EMUL_CODE" "{$PROJ_DIR$\..\..\..\..\..\Demos\micokit\SC3165\User\controllerBus.c}.199.1" 0 0 1 "" 0 "" 0
+Bp0=_ 0 "EMUL_CODE" "{$PROJ_DIR$\..\..\..\..\..\Demos\micokit\SC3165\User\controllerBus.c}.111.5" 0 0 1 "" 0 "" 0
+Bp1=_ 0 "EMUL_CODE" "{$PROJ_DIR$\..\..\..\..\..\Demos\micokit\SC3165\User\controllerBus.c}.202.1" 0 0 1 "" 0 "" 0
+Bp2=_ 0 "EMUL_CODE" "{$PROJ_DIR$\..\..\..\..\..\Demos\micokit\SC3165\User\controllerBus.c}.202.1" 0 0 1 "" 0 "" 0
 Bp3=_ 1 "EMUL_CODE" "{$PROJ_DIR$\..\..\..\..\..\Platform\MCU\STM32F4xx\peripherals\platform_uart.c}.697.7" 0 0 1 "" 0 "" 0
 Bp4=_ 1 "EMUL_CODE" "{$PROJ_DIR$\..\..\..\..\..\Platform\MCU\STM32F4xx\peripherals\platform_uart.c}.752.9" 0 0 1 "" 0 "" 0
 Count=5

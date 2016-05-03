@@ -18,6 +18,7 @@ History:
 #include "battery.h"
 #include "temperature.h"
 #include "controllerBus.h"
+#include "AaInclude.h"
 
 
 #ifdef DEBUG
@@ -31,45 +32,87 @@ History:
 #endif
 
 
+#define STACK_SIZE_DEVICE_THREAD    0x400
+
+
 mico_timer_t timer_device_notify;
 
+static mico_thread_t _device_handler = NULL;
+
 // device notify interval, unit: second
-u8 device_notify_interval = 60;
+u8 device_notify_interval = 10;//60;
 
 
+static void DeviceHandler(void* arg);
 static void DeviceEstimator(void* arg);
-static void MOChangedNotification(app_context_t *app_context);
-static void PowerNotification();
+static void PowerNotification(app_context_t *app_context);
 static bool PushIntoQueue(float* voltage, uint16_t deepth, uint16_t index, float data);
 static float GetQueueAverage(float* voltage, uint16_t deepth);
 static void PrintQueueValidValue(float* voltage, uint16_t deepth);
-static void SignalStrengthNotification();
+static void SignalStrengthNotification(app_context_t *app_context);
 static void TemperatureNotification();
-static void TFCardNotification();
+static void QueryTfStatus();
+static void HandleTfStatusResponse(void* msg_ptr, app_context_t *app_context);
 
 
 void DeviceInit(app_context_t *app_context)
 {
     OSStatus err;
-
-    err = mico_init_timer(&timer_device_notify, device_notify_interval*UpTicksPerSecond(), DeviceEstimator, app_context);
+    
+    // start the device monitor thread
+    err = mico_rtos_create_thread(&_device_handler, MICO_APPLICATION_PRIORITY, "DeviceHandler", 
+                                  DeviceHandler, STACK_SIZE_DEVICE_THREAD, 
+                                  app_context );
     if(kNoErr != err) {
-        user_log("[ERR]DeviceInit: create timer_device_notify failed");
+        AaSysLogPrint(LOGLEVEL_ERR, "create device thread failed");
     }
     else {
-        user_log("[DBG]DeviceInit: create timer_device_notify success");
+        AaSysLogPrint(LOGLEVEL_INF, "create device thread success");
+    }
+
+    // start device timer estimator
+    err = mico_init_timer(&timer_device_notify, device_notify_interval*UpTicksPerSecond(), DeviceEstimator, app_context);
+    if(kNoErr != err) {
+        AaSysLogPrint(LOGLEVEL_ERR, "create timer_device_notify failed");
+    }
+    else {
+        AaSysLogPrint(LOGLEVEL_INF, "create timer_device_notify success");
 
         err = mico_start_timer(&timer_device_notify);
         if(kNoErr != err) {
-            user_log("[ERR]DeviceInit: start timer_device_notify failed");
+            AaSysLogPrint(LOGLEVEL_ERR, "start timer_device_notify failed");
         }
         else {
-            user_log("[DBG]DeviceInit: start timer_device_notify success");
+            AaSysLogPrint(LOGLEVEL_INF, "start timer_device_notify success");
         }
     }
+}
 
-    ControllerBusSend(CONTROLLERBUS_CMD_TFSTATUS, NULL, 0);
-    user_log("[DBG]DeviceInit: query TF Card status");
+static void DeviceHandler(void* arg)
+{
+    app_context_t *app_context = (app_context_t *)arg;
+    void* msg_ptr;
+    SMsgHeader* msg;
+
+    AaSysLogPrint(LOGLEVEL_INF, "DeviceHandler thread started");
+    
+    while(1) {
+        msg_ptr = AaSysComReceiveHandler(MsgQueue_DeviceHandler, MICO_WAIT_FOREVER);
+        msg = (SMsgHeader*)msg_ptr;
+
+        AaSysLogPrint(LOGLEVEL_DBG, "receive message id 0x%04x", msg->msg_id);
+
+        switch(msg->msg_id) {
+            case API_MESSAGE_ID_TFSTATUS_RESP: 
+                HandleTfStatusResponse(msg_ptr, app_context);
+                break;
+            default: 
+                AaSysLogPrint(LOGLEVEL_WRN, "no message id 0x%04x", msg->msg_id); 
+                break;
+        }
+        
+        if(msg_ptr != NULL) AaSysComDestory(msg_ptr);
+    }
 }
 
 static void DeviceEstimator(void* arg)
@@ -79,88 +122,49 @@ static void DeviceEstimator(void* arg)
 
     err = mico_reload_timer(&timer_device_notify);
     if(err != kNoErr) {
-        user_log("[ERR]DeviceEstimator: reload timer_device_notify failed");
+        AaSysLogPrint(LOGLEVEL_ERR, "reload timer_device_notify failed");
     }
     else {
 //        user_log("[DBG]DeviceEstimator: reload timer_device_notify success");
     }
     
-    PowerNotification();
-    SignalStrengthNotification();
-//    TemperatureNotification();
-    TFCardNotification();
-
-    MOChangedNotification(app_context);
+    PowerNotification(app_context);
+    SignalStrengthNotification(app_context);
+    QueryTfStatus();
 }
-
-static void MOChangedNotification(app_context_t *app_context)
-{
-    bool ret;
-    do {
-        ret = false;
-        if(IsPowerChanged()) {
-            ret = SendJsonInt(app_context, "DEVICE-1/Power", GetPower());
-            user_log("[DBG]MOChangedNotification: Power change to %d", GetPower());
-        }
-        else if(IsLowPowerAlarmChanged()) {
-            ret = SendJsonBool(app_context, "DEVICE-1/LowPowerAlarm", GetLowPowerAlarm());
-            user_log("[DBG]MOChangedNotification: LowPowerAlarm change to %s", GetLowPowerAlarm() ? "true" : "false");
-        }
-        else if(IsSignalStrenghChanged()) {
-            ret = SendJsonInt(app_context, "DEVICE-1/SignalStrength", GetSignalStrengh());
-            user_log("[DBG]MOChangedNotification: SignalStrength change to %d", GetSignalStrengh());
-        }
-#if 0
-        else if(IsTemperatureChanged()) {
-            ret = SendJsonDouble(app_context, "DEVICE-1/Temperature", GetTemperature());
-            user_log("[DBG]MOChangedNotification: Temperature change to %lf", GetTemperature());
-        }
-#endif
-        else if(IsTFStatusChanged()) {
-            ret = SendJsonBool(app_context, "DEVICE-1/TFStatus", GetTFStatus());
-            user_log("[DBG]MOChangedNotification: TFStatus change to %s", GetTFStatus() ? "true" : "false");
-        }
-        else if(IsTFCapacityChanged()) {
-            ret = SendJsonDouble(app_context, "DEVICE-1/TFCapacity", GetTFCapacity());
-            user_log("[DBG]MOChangedNotification: TFCapacity change to %lf", GetTFCapacity());
-        }
-        else if(IsTFFreeChanged()) {
-            ret = SendJsonDouble(app_context, "DEVICE-1/TFFree", GetTFFree());
-            user_log("[DBG]MOChangedNotification: TFFree change to %lf", GetTFFree());
-        }
-    }while(ret);
-}
-
 
 #define LOW_POWER_LIMIT         15
 #define VOLTAGE_BUFFER_DEEPTH   10
 
-static void PowerNotification()
+static void PowerNotification(app_context_t *app_context)
 {
+    bool ret;
     float voltage_tmp = 0;
     static float voltage[VOLTAGE_BUFFER_DEEPTH] = {0};
     static uint16_t vol_buf_idx = 0;
     static uint16_t vol_buf_lenth = 0;
 
     if(GetBatteryVoltage(&voltage_tmp) != true) {
-        user_log("[ERR]PowerNotification: get battery voltage_tmp failed");
+        AaSysLogPrint(LOGLEVEL_ERR, "get battery voltage_tmp failed");
         return ;
     }
 
     voltage_tmp *= 100.0;
     
     if(voltage_tmp < BATTERY_VOLTAGE_LOW) {
-        user_log("[WRN]PowerNotification: battery voltage_tmp below the lowest");
+        AaSysLogPrint(LOGLEVEL_WRN, "battery voltage_tmp below the lowest");
         SetPower(0);
         return ;
     }
     else if(voltage_tmp > BATTERY_VOLTAGE_HIGH) {
-        user_log("[WRN]PowerNotification: battery voltage_tmp is full");
+        AaSysLogPrint(LOGLEVEL_WRN, "battery voltage_tmp is full");
         SetPower(100);
         return ;
     }
     else {
-        PushIntoQueue(voltage, VOLTAGE_BUFFER_DEEPTH, vol_buf_idx, voltage_tmp);
+        if(true != PushIntoQueue(voltage, VOLTAGE_BUFFER_DEEPTH, vol_buf_idx, voltage_tmp)) {
+            return ;
+        }
 
         if(vol_buf_idx < VOLTAGE_BUFFER_DEEPTH) {
             vol_buf_idx++;
@@ -185,12 +189,26 @@ static void PowerNotification()
 
     SetLowPowerAlarm( GetPower() <= LOW_POWER_LIMIT ? true : false );
 //    user_log("[DBG]PowerNotification: current power alarm %s", GetLowPowerAlarm() ? "true" : "false");
+
+    ret = false;
+    if(IsPowerChanged()) {
+        ret = SendJsonInt(app_context, "DEVICE-1/Power", GetPower());
+        AaSysLogPrint(LOGLEVEL_DBG, "Power change to %d with ret %s", GetPower(), ret ? "true" : "false");
+    }
+
+    ret = false;
+    if(IsLowPowerAlarmChanged()) {
+        ret = SendJsonBool(app_context, "DEVICE-1/LowPowerAlarm", GetLowPowerAlarm());
+        AaSysLogPrint(LOGLEVEL_DBG, "LowPowerAlarm change to %s with ret %s", 
+                GetLowPowerAlarm() ? "true" : "false",
+                ret ? "true" : "false");
+    }
 }
 
 static bool PushIntoQueue(float* voltage, uint16_t deepth, uint16_t index, float data)
 {
     if(index >= deepth) {
-        user_log("[ERR]PushIntoQueue: error input index %d larger than deepth %d", index, deepth);
+        AaSysLogPrint(LOGLEVEL_WRN, "error input index %d larger than deepth %d", index, deepth);
         return false;
     }
 
@@ -220,28 +238,35 @@ static void PrintQueueValidValue(float* voltage, uint16_t deepth)
     uint16_t i;
 
     for(i=0; i<deepth; i++) {
-        user_log("[DBG]PrintQueueValidValue: voltage[%d] %f", i, voltage[i]);
+        AaSysLogPrint(LOGLEVEL_DBG, "voltage[%d] %f", i, voltage[i]);
     }
 }
 
-static void SignalStrengthNotification()
+static void SignalStrengthNotification(app_context_t *app_context)
 {
+    bool ret;
     OSStatus err = kNoErr;
     LinkStatusTypeDef wifi_link_status;
     static int link_strength;
     
     err = micoWlanGetLinkStatus(&wifi_link_status);
     if(kNoErr != err){
-      user_log("[ERR]SignalStrengthNotification: err code(%d)", err);
+      AaSysLogPrint(LOGLEVEL_ERR, "get link status err code(%d)", err);
       return ;
     }
 
     // will never reach 100 percent, range from 0 to 5
-    wifi_link_status.wifi_strength += 18;
+    wifi_link_status.wifi_strength += 15;
     link_strength = wifi_link_status.wifi_strength / 20;
 
     if(GetSignalStrengh() != link_strength) {
         SetSignalStrengh(link_strength);
+    }
+
+    ret = false;
+    if(IsSignalStrenghChanged()) {
+        ret = SendJsonInt(app_context, "DEVICE-1/SignalStrength", GetSignalStrengh());
+        AaSysLogPrint(LOGLEVEL_DBG, "SignalStrength change to %d with ret %s", GetSignalStrengh(), ret ? "true" : "false");
     }
 }
 
@@ -253,17 +278,64 @@ static void TemperatureNotification()
     float temp;
 
     if(TMP75ReadTemperature(&temp) == true) {
-        user_log("[DBG]TemperatureNotification: current temperature %f", temp);
+        AaSysLogPrint(LOGLEVEL_DBG, "current temperature %f", temp);
     }
     else {
-        user_log("[ERR]TemperatureNotification: get temperature failed");
+        AaSysLogPrint(LOGLEVEL_ERR, "get temperature failed");
     }
 #endif
 }
 
-static void TFCardNotification()
+static void QueryTfStatus()
 {
-    ControllerBusSend(CONTROLLERBUS_CMD_TFSTATUS, NULL, 0);
+    void* msg;
+    
+    msg = AaSysComCreate(API_MESSAGE_ID_TFSTATUS_REQ, MsgQueue_DeviceHandler, MsgQueue_ControllerBusSend, sizeof(ApiTfStatusReq));
+    if(msg == NULL) {
+        AaSysLogPrint(LOGLEVEL_ERR, "ApiQueryTfStatus create failed");
+        return ;
+    }
+
+    if(kNoErr != AaSysComSend(msg)) {
+        AaSysLogPrint(LOGLEVEL_ERR, "ApiQueryTfStatus send failed");
+    }
+}
+
+static void HandleTfStatusResponse(void* msg_ptr, app_context_t *app_context)
+{
+    bool ret;
+    ApiTfStatusResp* payload = AaSysComGetPayload(msg_ptr);
+
+    AaSysLogPrint(LOGLEVEL_DBG, "get TF status %s capacity %d free %d",
+            payload->status ? "true" : "false", payload->capacity, payload->free);
+
+    payload->status ? SetTFStatus(true) : SetTFStatus(false);
+    SetTFCapacity(payload->capacity);
+    SetTFFree(payload->free);
+
+    ret = false;
+    if(IsTFStatusChanged()) {
+        ret = SendJsonBool(app_context, "DEVICE-1/TFStatus", GetTFStatus());
+        AaSysLogPrint(LOGLEVEL_DBG, "TFStatus change to %s with ret %s", 
+                GetTFStatus() ? "true" : "false",
+                ret ? "true" : "false");
+    }
+
+    ret = false;
+    if(IsTFCapacityChanged()) {
+        ret = SendJsonDouble(app_context, "DEVICE-1/TFCapacity", GetTFCapacity());
+        AaSysLogPrint(LOGLEVEL_DBG, "TFCapacity change to %lf with ret %s", 
+                GetTFCapacity(),
+                ret ? "true" : "false");
+    }
+
+    ret = false;
+    if(IsTFFreeChanged()) {
+        ret = SendJsonDouble(app_context, "DEVICE-1/TFFree", GetTFFree());
+        AaSysLogPrint(LOGLEVEL_DBG, "TFFree change to %lf with ret %s", 
+                GetTFFree(),
+                ret ? "true" : "false");
+    }
 }
 
 

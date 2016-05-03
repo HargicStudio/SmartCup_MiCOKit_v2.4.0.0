@@ -464,7 +464,7 @@ void platform_init_peripheral_irq_priorities( void )
 
 void init_platform( void )
 {
-  button_init_t init;
+//  button_init_t init;
 
   MicoGpioInitialize( (mico_gpio_t)MICO_SYS_LED, OUTPUT_PUSH_PULL );
   MicoGpioOutputLow( (mico_gpio_t)MICO_SYS_LED );
@@ -474,12 +474,12 @@ void init_platform( void )
   MicoGpioInitialize((mico_gpio_t)BOOT_SEL, INPUT_PULL_UP);
   MicoGpioInitialize((mico_gpio_t)MFG_SEL, INPUT_PULL_UP);
 
-  init.gpio = EasyLink_BUTTON;
-  init.pressed_func = PlatformEasyLinkButtonClickedCallback;
-  init.long_pressed_func = PlatformEasyLinkButtonLongPressedCallback;
-  init.long_pressed_timeout = 5000;
+//  init.gpio = EasyLink_BUTTON;
+//  init.pressed_func = PlatformEasyLinkButtonClickedCallback;
+//  init.long_pressed_func = PlatformEasyLinkButtonLongPressedCallback;
+//  init.long_pressed_timeout = 5000;
 
-  button_init( IOBUTTON_EASYLINK, init );
+//  button_init( IOBUTTON_EASYLINK, init );
   
 #ifdef USE_MiCOKit_EXT
   dc_motor_init( );

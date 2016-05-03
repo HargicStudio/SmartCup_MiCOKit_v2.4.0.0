@@ -146,6 +146,15 @@
       </file>
     </group>
     <group>
+      <name>Plarform</name>
+      <file>
+        <name>$PROJ_DIR$\..\..\..\..\..\Demos\micokit\SC3165\Platform\AaSysCom\AaSysCom.c</name>
+      </file>
+      <file>
+        <name>$PROJ_DIR$\..\..\..\..\..\Demos\micokit\SC3165\Platform\AaSysLog\AaSysLog.c</name>
+      </file>
+    </group>
+    <group>
       <name>User</name>
       <file>
         <name>$PROJ_DIR$\..\..\..\..\..\Demos\micokit\SC3165\User\battery.c</name>
@@ -426,9 +435,6 @@
           <name>$PROJ_DIR$\..\..\..\..\..\Platform\Drivers\spi_flash\spi_flash_platform.c</name>
         </file>
       </group>
-      <file>
-        <name>$PROJ_DIR$\..\..\..\..\..\Platform\Drivers\keypad\gpio_button\button.c</name>
-      </file>
     </group>
     <group>
       <name>EWARM</name>

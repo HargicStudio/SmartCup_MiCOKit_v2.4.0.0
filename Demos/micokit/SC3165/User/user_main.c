@@ -35,6 +35,7 @@
 #include "LightsMonitor.h"
 #include "MusicMonitor.h"
 #include "controllerBus.h"
+#include "AaInclude.h"
 
 
 /* User defined debug log functions
@@ -69,11 +70,16 @@ OSStatus user_main( app_context_t * const app_context )
   uint16_t datalen;
 
   require(app_context, exit);
-  
-  OuterTriggerInit(NULL);
-//  TemperatureInit();  // will be support in release 2
-  BatteryInit();
+
+  // platform initialize
+  AaSysComInit();
+  AaSysLogInit();
+
+  // application initialize
   ControllerBusInit();
+  OuterTriggerInit(NULL);
+  TemperatureInit();  // will be support in release 2
+  BatteryInit();
 
   // reset f411 and wait until it startup
   ResetF411();
@@ -85,10 +91,10 @@ OSStatus user_main( app_context_t * const app_context )
 
   err = SntpInit(app_context);
   if(kNoErr != err) {
-    user_log("[ERR]net_main: SntpInit finished with err code %d", err);
+    AaSysLogPrint(LOGLEVEL_ERR, "SntpInit finished with err code %d", err);
   }
   else {
-    user_log("[DBG]net_main: SntpInit success");
+    AaSysLogPrint(LOGLEVEL_DBG, "SntpInit success");
   }
 
 #if 1

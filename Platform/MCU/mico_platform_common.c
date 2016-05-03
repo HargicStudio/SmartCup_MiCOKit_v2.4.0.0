@@ -362,6 +362,8 @@ OSStatus MicoSpiInitialize( const mico_spi_device_t* spi )
   platform_spi_config_t config;
   OSStatus              err = kNoErr;
 
+//  printf("spi->port %d\r\n", spi->port);
+
   if ( spi->port >= MICO_SPI_NONE )
     return kUnsupportedErr;
 
@@ -376,6 +378,8 @@ OSStatus MicoSpiInitialize( const mico_spi_device_t* spi )
   mico_rtos_lock_mutex( &platform_spi_drivers[spi->port].spi_mutex );
   err = platform_spi_init( &platform_spi_drivers[spi->port], &platform_spi_peripherals[spi->port], &config );
   mico_rtos_unlock_mutex( &platform_spi_drivers[spi->port].spi_mutex );
+
+//  printf("err %d\r\n", err);
 
   return err;
 }
@@ -417,6 +421,8 @@ OSStatus MicoSpiTransfer( const mico_spi_device_t* spi, const mico_spi_message_s
   err = platform_spi_init( &platform_spi_drivers[spi->port], &platform_spi_peripherals[spi->port], &config );
   err = platform_spi_transfer( &platform_spi_drivers[spi->port], &config, segments, number_of_segments );
   mico_rtos_unlock_mutex( &platform_spi_drivers[spi->port].spi_mutex );
+
+//  printf("transfer err %d\r\n", err);
 
   return err;
 }
