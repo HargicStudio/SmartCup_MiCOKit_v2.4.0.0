@@ -55,6 +55,8 @@ enum {
 
     API_MESSAGE_ID_PAUSE_REQ,
     API_MESSAGE_ID_PAUSE_RESP,
+
+    API_MESSAGE_ID_TRACKLIST_REQ,
     
     API_MESSAGE_ID_MAX = 0xFFFF,
 };
@@ -92,6 +94,7 @@ typedef struct ApiTrackNameReq_t {
 // API_MESSAGE_ID_TRACKNAME_RESP
 typedef struct ApiTrackNameResp_t {
     u8      type;
+    bool    status;
     u16     track_index;
     char    name[TRACKNAME_MAX_LENGTH];
 } ApiTrackNameResp;
@@ -167,6 +170,13 @@ typedef struct ApiPauseReq_t {
 typedef struct ApiPauseResp_t {
     bool status;
 } ApiPauseResp;
+
+// API_MESSAGE_ID_TRACKLIST_REQ
+typedef struct {
+    u8 reserve;
+} ApiTrackListReq;
+
+
 
 #ifdef __cplusplus
 }

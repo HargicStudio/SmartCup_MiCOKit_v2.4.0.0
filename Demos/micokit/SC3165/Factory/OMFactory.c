@@ -17,6 +17,7 @@ History:
 #include "CheckSumUtils.h"
 #include "user_debug.h"
 #include "controllerBus.h"
+#include "AaInclude.h"
 
 
 #ifdef DEBUG
@@ -38,6 +39,10 @@ History:
 
 #define OBJECTMODEL_PARAMETER_OFFSET 0x20
 
+
+static mico_mutex_t _factory_save_mutex = NULL;
+
+
 static void OMFactoryRead();
 static bool ParseOM(const char* string);
 static void SaveObjectModelDefaultParameter();
@@ -46,9 +51,17 @@ static void PrintInitParameter();
 
 void OMFactoryInit()
 {
-    OMFactoryRead();
+    OSStatus err;
 
-    // TODO: get Music track
+    err = mico_rtos_init_mutex(&_factory_save_mutex);
+    if(err != kNoErr) {
+        AaSysLogPrint(LOGLEVEL_ERR, "create _factory_save_mutex failed");
+    }
+    else {
+        AaSysLogPrint(LOGLEVEL_INF, "create _factory_save_mutex success");
+    }
+    
+    OMFactoryRead();
 }
 
 static void OMFactoryRead()
@@ -289,6 +302,8 @@ void OMFactorySave()
     char om_string[64];
     u8 index;
 
+    mico_rtos_lock_mutex(&_factory_save_mutex);
+
     save_json_object = json_object_new_object();
     if(NULL == save_json_object){
         user_log("[ERR]OMFactorySave: create json object error");
@@ -379,6 +394,8 @@ exit:
     // free json object memory
     json_object_put(save_json_object);
     save_json_object = NULL;
+
+    mico_rtos_unlock_mutex(&_factory_save_mutex);
 }
 
 static void SaveObjectModelDefaultParameter()

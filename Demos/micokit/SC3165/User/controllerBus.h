@@ -30,6 +30,7 @@ typedef struct SCBusHeader_t {
     uint8_t  tail;
 } SCBusHeader;
 
+
 typedef enum ECBusCmd_t {
     CONTROLLERBUS_CMD_GETTRACKNUM   = 0x11,
     CONTROLLERBUS_CMD_GETTRQACKNAME = 0x12,
@@ -43,10 +44,17 @@ typedef enum ECBusCmd_t {
 } ECBusCmd;
 
 
+enum {
+    TRACKTYPE_SYSTEM = 0,
+    TRACKTYPE_USER,
+    TRACKTYPE_WECHAT,
+    TRACKTYPE_MAX,
+};
+
 
 bool ControllerBusInit(void);
-void PinInitForUsart(void);
 OSStatus ControllerBusSend(ECBusCmd cmd, unsigned char *inData, unsigned int inDataLen);
+void ResetF411(void);
 
 
    

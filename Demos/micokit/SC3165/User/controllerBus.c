@@ -13,7 +13,7 @@ History:
 #include "If_MO.h"
 #include "MusicMonitor.h"
 #include "AaInclude.h"
-
+#include <stdio.h>
 
 
 #define user_log(M, ...) custom_log("ControllerBus", M, ##__VA_ARGS__)
@@ -26,6 +26,9 @@ History:
 
 #define CONTROLLERBUS_MAGIC   0x5a
 #define CONTROLLERBUS_TAIL    0xaa
+
+#define F411_RESET_PIN  F411_PIN_RST
+
 
 
 bool is_serial_data_print_open = true;
@@ -41,15 +44,19 @@ uint16_t g_track_num;
 uint16_t g_track_query_idx;
 
 
-static void ControllerBusSendandler(void* arg);
-static OSStatus HandleTfStatusRequest(void* msg_ptr);
-static void ControllerBusReceivingHandler(void* arg);
+static void ControllerBusMsgHandler(void* arg);
+static OSStatus HandleTfStatusReq(void* msg_ptr);
+static OSStatus HandleVolumeReq(void* msg_ptr);
+static OSStatus HandleTrackNumberReq(void* msg_ptr);
+static OSStatus HandleTrackNameReq(void* msg_ptr);
+static void ControllerBusProtocolHandler(void* arg);
 static OSStatus ParseControllerBus(SCBusHeader* header, uint8_t* payload);
 static OSStatus ParseTFCardStatus(uint8_t* payload);
 static OSStatus ParseVolume(uint8_t* payload);
-static OSStatus ParseTrackNumber(uint8_t* payload);
-static OSStatus ParseTrackName(uint8_t* payload);
+static OSStatus ParseTrackNumber(SCBusHeader* header, uint8_t* payload);
+static OSStatus ParseTrackName(SCBusHeader* header, uint8_t* payload);
 static OSStatus ParseTrackPlay(uint8_t* payload);
+static void PinInitForUsart(void);
 
 
 
@@ -101,19 +108,22 @@ OSStatus ControllerBusSend(ECBusCmd cmd, unsigned char *inData, unsigned int inD
     return kNoErr;
 }
 
-static void ControllerBusSendandler(void* arg)
+static void ControllerBusMsgHandler(void* arg)
 {
     void* msg_ptr;
     SMsgHeader* msg;
     
     while(1) {
-        msg_ptr = AaSysComReceiveHandler(MsgQueue_ControllerBusSend, MICO_WAIT_FOREVER);
+        msg_ptr = AaSysComReceiveHandler(MsgQueue_ControllerBus, MICO_WAIT_FOREVER);
         msg = (SMsgHeader*)msg_ptr;
 
         AaSysLogPrint(LOGLEVEL_DBG, "receive message id 0x%04x", msg->msg_id);
 
         switch(msg->msg_id) {
-            case API_MESSAGE_ID_TFSTATUS_REQ: HandleTfStatusRequest(msg_ptr); break;
+            case API_MESSAGE_ID_TFSTATUS_REQ: HandleTfStatusReq(msg_ptr); break;
+            case API_MESSAGE_ID_VOLUME_REQ: HandleVolumeReq(msg_ptr); break;
+            case API_MESSAGE_ID_TRACKNUM_REQ: HandleTrackNumberReq(msg_ptr); break;
+            case API_MESSAGE_ID_TRACKNAME_REQ: HandleTrackNameReq(msg_ptr); break;
             default: 
                 AaSysLogPrint(LOGLEVEL_ERR, "no message id 0x%04x", msg->msg_id); 
                 break;
@@ -123,12 +133,12 @@ static void ControllerBusSendandler(void* arg)
     }
 }
 
-static OSStatus HandleTfStatusRequest(void* msg_ptr)
+static OSStatus HandleTfStatusReq(void* msg_ptr)
 {
     SMsgHeader* msg = (SMsgHeader*)msg_ptr;
 
     if(msg->pl_size != sizeof(ApiTfStatusReq)) {
-        AaSysLogPrint(LOGLEVEL_ERR, "pl_size %d isn't match sizeof(ApiTfStatusReq) %d", 
+        AaSysLogPrint(LOGLEVEL_ERR, "pl_size %d don't match sizeof(ApiTfStatusReq) %d", 
                 msg->pl_size, sizeof(ApiTfStatusReq));
         return kInProgressErr;
     }
@@ -138,26 +148,84 @@ static OSStatus HandleTfStatusRequest(void* msg_ptr)
     return kNoErr;
 }
 
-static void ControllerBusReceivingHandler(void* arg)
+static OSStatus HandleVolumeReq(void* msg_ptr)
+{
+    SMsgHeader* msg = (SMsgHeader*)msg_ptr;
+    if(msg->pl_size != sizeof(ApiVolumeReq)) {
+        AaSysLogPrint(LOGLEVEL_ERR, "pl_size %d don't match sizeof(ApiVolumeReq) %d", 
+                msg->pl_size, sizeof(ApiVolumeReq));
+        return kInProgressErr;
+    }
+
+    ApiVolumeReq* pl = AaSysComGetPayload(msg_ptr);
+    u8 volume = pl->volume;
+
+    ControllerBusSend(CONTROLLERBUS_CMD_VOLUME, &volume, sizeof(volume));
+
+    return kNoErr;
+}
+
+static OSStatus HandleTrackNumberReq(void* msg_ptr)
+{
+    SMsgHeader* msg = (SMsgHeader*)msg_ptr;
+    if(msg->pl_size != sizeof(ApiTrackNumReq)) {
+        AaSysLogPrint(LOGLEVEL_ERR, "pl_size %d don't match sizeof(ApiTrackNumReq) %d", 
+                msg->pl_size, sizeof(ApiTrackNumReq));
+        return kInProgressErr;
+    }
+
+    ApiTrackNumReq* pl = AaSysComGetPayload(msg_ptr);
+
+    u8 type = pl->type;
+
+    ControllerBusSend(CONTROLLERBUS_CMD_GETTRACKNUM, &type, sizeof(type));
+
+    return kNoErr;
+}
+
+#define HANDLETRACKNAME_BUFFER_LENGTH   (sizeof(u8) + sizeof(u16))
+
+static OSStatus HandleTrackNameReq(void* msg_ptr)
+{
+    SMsgHeader* msg = (SMsgHeader*)msg_ptr;
+    if(msg->pl_size != sizeof(ApiTrackNameReq)) {
+        AaSysLogPrint(LOGLEVEL_ERR, "pl_size %d don't match sizeof(ApiTrackNameReq) %d", 
+                msg->pl_size, sizeof(ApiTrackNameReq));
+        return kInProgressErr;
+    }
+
+    ApiTrackNameReq* pl = AaSysComGetPayload(msg_ptr);
+
+    u8 buf[HANDLETRACKNAME_BUFFER_LENGTH];
+
+    *buf = pl->type;
+    *(uint16_t*)(buf + sizeof(u8)) = pl->track_index;
+
+    ControllerBusSend(CONTROLLERBUS_CMD_GETTRQACKNAME, buf, HANDLETRACKNAME_BUFFER_LENGTH);
+
+    return kNoErr;
+}
+
+static void ControllerBusProtocolHandler(void* arg)
 {
     // avoid compiling warning
     arg = arg;
     uint16_t received_len;
 
-    user_log("[DBG]ControllerBusReceivingHandler: create controllerbus thread success");
+    AaSysLogPrint(LOGLEVEL_INF, "create controllerbus thread success");
 
     while(1) {
         received_len = user_uartRecv(recv_buffer, sizeof(SCBusHeader));
         if(received_len == 0) {
-            user_log("[ERR]ControllerBusReceivingHandler: do not received any header");
+            AaSysLogPrint(LOGLEVEL_WRN, "do not received any header");
             continue;
         }
 
-        user_log("[DBG]ControllerBusReceivingHandler: receive header length %d", received_len);
+        AaSysLogPrint(LOGLEVEL_DBG, "receive header length %d", received_len);
         print_serial_data(recv_buffer, received_len);
 
         if(received_len != sizeof(SCBusHeader)) {
-            user_log("[ERR]ControllerBusReceivingHandler: received header length do not match");
+            AaSysLogPrint(LOGLEVEL_WRN, "received header length do not match");
             continue;
         }
 
@@ -165,7 +233,7 @@ static void ControllerBusReceivingHandler(void* arg)
 
         // parse the header, get the data length and checksum
         if(header->magic != CONTROLLERBUS_MAGIC || header->tail != CONTROLLERBUS_TAIL) {
-            user_log("[ERR]ControllerBusReceivingHandler: magic 0x%02x or tail 0x%02x do not match",
+            AaSysLogPrint(LOGLEVEL_WRN, "magic 0x%02x or tail 0x%02x do not match",
                     header->magic, header->tail);
             continue;
         }
@@ -173,14 +241,14 @@ static void ControllerBusReceivingHandler(void* arg)
         uint16_t datalen = header->datalen;
         uint8_t checksum = header->checksum;
 
-        user_log("[DBG]ControllerBusReceivingHandler: get datalen %d checksum 0x%02x", datalen, checksum);
+        AaSysLogPrint(LOGLEVEL_DBG, "get datalen %d checksum 0x%02x", datalen, checksum);
 
         if(datalen == 0) {
-            user_log("[ERR]ControllerBusReceivingHandler: there is no data");
+            AaSysLogPrint(LOGLEVEL_WRN, "there is no data");
             continue;
         }
         else if(datalen >= (CONTROLLERBUS_RECV_BUFFER_LENGTH - sizeof(SCBusHeader))) {
-            user_log("[ERR]ControllerBusReceivingHandler: there is too much data and receive buffer %d is overflow", 
+            AaSysLogPrint(LOGLEVEL_WRN, "there is too much data and receive buffer %d is overflow", 
                     CONTROLLERBUS_RECV_BUFFER_LENGTH);
             continue;
         }
@@ -190,15 +258,15 @@ static void ControllerBusReceivingHandler(void* arg)
 
         received_len = user_uartRecv(payload, datalen);
         if(received_len == 0) {
-            user_log("[ERR]ControllerBusReceivingHandler: do not received any data");
+            AaSysLogPrint(LOGLEVEL_WRN, "do not received any data");
             continue;
         }
         
-        user_log("[DBG]ControllerBusReceivingHandler: receive data length %d", received_len);
+        AaSysLogPrint(LOGLEVEL_DBG, "receive data length %d", received_len);
         print_serial_data(payload, received_len);
 
         if(received_len != datalen) {
-            user_log("[ERR]ControllerBusReceivingHandler: received data length do not match");
+            AaSysLogPrint(LOGLEVEL_WRN, "received data length do not match");
             continue;
         }
 
@@ -214,7 +282,7 @@ static void ControllerBusReceivingHandler(void* arg)
             data_checksum += *(payload + idx);
         }
         if(data_checksum != checksum) {
-            user_log("[ERR]ControllerBusReceivingHandler: data checksum 0x%02x do not match received checksum 0x%02x, dropping", 
+            AaSysLogPrint(LOGLEVEL_WRN, "data checksum 0x%02x do not match received checksum 0x%02x, dropping", 
                     data_checksum, checksum);
             continue;
         }
@@ -222,12 +290,11 @@ static void ControllerBusReceivingHandler(void* arg)
 
         ParseControllerBus(header, payload);
 
-        user_log("[DBG]ControllerBusReceivingHandler: parse package complete");
+        AaSysLogPrint(LOGLEVEL_DBG, "parse package complete");
     }
 
     // normally should not access
-exit:
-    user_log("[ERR]ControllerBusReceivingHandler: some fatal error occur, thread dead");
+    AaSysLogPrint(LOGLEVEL_ERR, "some fatal error occur, thread dead");
     mico_rtos_delete_thread(NULL);  // delete current thread
 }
 
@@ -236,8 +303,8 @@ static OSStatus ParseControllerBus(SCBusHeader* header, uint8_t* payload)
     OSStatus err = kGeneralErr;
     
     switch(header->cmd) {
-        case CONTROLLERBUS_CMD_GETTRACKNUM: err = ParseTrackNumber(payload); break;
-        case CONTROLLERBUS_CMD_GETTRQACKNAME: err = ParseTrackName(payload); break;
+        case CONTROLLERBUS_CMD_GETTRACKNUM: err = ParseTrackNumber(header, payload); break;
+        case CONTROLLERBUS_CMD_GETTRQACKNAME: err = ParseTrackName(header, payload); break;
         case CONTROLLERBUS_CMD_PLAY: err = ParseTrackPlay(payload); break;
         case CONTROLLERBUS_CMD_VOLUME: err = ParseVolume(payload); break;
         case CONTROLLERBUS_CMD_TFSTATUS: err = ParseTFCardStatus(payload); break;
@@ -259,63 +326,86 @@ static OSStatus ParseTrackPlay(uint8_t* payload)
     return kNoErr;
 }
 
-static OSStatus ParseTrackNumber(uint8_t* payload)
+static OSStatus ParseTrackNumber(SCBusHeader* header, uint8_t* payload)
 {
-    g_track_num = *(uint16_t*)payload;
-    user_log("[DBG]ParseTrackNumber: get all track number %d", g_track_num);
+    if(header->datalen != (sizeof(uint8_t) + sizeof(uint16_t))) {
+        AaSysLogPrint(LOGLEVEL_WRN, "data len %d from controller bus incorrect", header->datalen);
+        return kGeneralErr;
+    }
+    
+    void* msg;
 
-    // clear query track index
-    g_track_query_idx = 0;
+    msg = AaSysComCreate(API_MESSAGE_ID_TRACKNUM_RESP, MsgQueue_ControllerBus, MsgQueue_MusicHandler, sizeof(ApiTrackNumResp));
+    if(msg == NULL) {
+        AaSysLogPrint(LOGLEVEL_ERR, "API_MESSAGE_ID_TRACKNUM_RESP create failed");
+        return kNoMemoryErr;
+    }
 
-    // start to query track name from track 1
-    if(g_track_num != 0) {
-        g_track_query_idx ++;
-        user_log("[DBG]ParseTrackNumber: start to query track %d name", g_track_query_idx);
-        ControllerBusSend(CONTROLLERBUS_CMD_GETTRQACKNAME, (unsigned char*)&g_track_query_idx, sizeof(g_track_query_idx));
+    ApiTrackNumResp* pl = AaSysComGetPayload(msg);
+    
+    pl->type = *(uint8_t*)payload;
+    pl->track_num = *(uint16_t*)(payload + sizeof(uint8_t));
+
+    if(kNoErr != AaSysComSend(msg)) {
+        AaSysLogPrint(LOGLEVEL_ERR, "API_MESSAGE_ID_TRACKNUM_RESP send failed");
     }
 
     return kNoErr;
 }
 
-static OSStatus ParseTrackName(uint8_t* payload)
+static OSStatus ParseTrackName(SCBusHeader* header, uint8_t* payload)
 {
-    uint8_t status = *payload;
-    uint16_t track_id = *(uint16_t*)(payload + sizeof(uint8_t));
-    char* track_name = (char*)(payload + sizeof(uint8_t) + sizeof(uint16_t));
-
-    user_log("[DBG]ParseTrackName: get status %d trackID %d trackName %s", status, track_id, track_name);
-
-    if(status != 0) {
-        // if query track name failed, query again
-        user_log("[DBG]ParseTrackName: get trackId %d status %d failed, query again", track_id, status);
-        ControllerBusSend(CONTROLLERBUS_CMD_GETTRQACKNAME, (unsigned char*)&g_track_query_idx, sizeof(g_track_query_idx));
-        return kNoErr;
+    if(header->datalen <= (2*sizeof(uint8_t) + sizeof(uint16_t))) {
+        AaSysLogPrint(LOGLEVEL_WRN, "data len %d from controller bus incorrect", header->datalen);
+        return kGeneralErr;
     }
 
-    UploadTrack(track_id, track_name);
+    void* msg;
 
-    if(g_track_query_idx >= g_track_num) {
-        user_log("[DBG]ParseTrackName: all track %d have query and complete", g_track_num);
-        return kNoErr;
+    msg = AaSysComCreate(API_MESSAGE_ID_TRACKNAME_RESP, MsgQueue_ControllerBus, MsgQueue_MusicHandler, sizeof(ApiTrackNameResp));
+    if(msg == NULL) {
+        AaSysLogPrint(LOGLEVEL_ERR, "API_MESSAGE_ID_TRACKNAME_RESP create failed");
+        return kNoMemoryErr;
     }
 
-    // query next track
-    g_track_query_idx ++;
-    user_log("[DBG]ParseTrackName: start to query track %d name", g_track_query_idx);
-    ControllerBusSend(CONTROLLERBUS_CMD_GETTRQACKNAME, (unsigned char*)&g_track_query_idx, sizeof(g_track_query_idx));
+    ApiTrackNameResp* pl = AaSysComGetPayload(msg);
+    
+    pl->type = *payload;
+    pl->status = *(payload + sizeof(uint8_t));
+    pl->track_index = *(uint16_t*)(payload + 2*sizeof(uint8_t));
+
+    char* name = (char*)(payload + 2*sizeof(uint8_t) + sizeof(uint16_t));
+    sprintf(pl->name, "%s\0", name);
+
+    if(kNoErr != AaSysComSend(msg)) {
+        AaSysLogPrint(LOGLEVEL_ERR, "API_MESSAGE_ID_TRACKNUM_RESP send failed");
+    }
     
     return kNoErr;
 }
 
 static OSStatus ParseVolume(uint8_t* payload)
 {
-    uint8_t* volume = payload;
+    uint8_t* status = payload;
 
-    if(*volume != 0) {
-        user_log("[ERR]ParseVolume: set volume status %d failed", *volume);
+    void* msg;
+
+    msg = AaSysComCreate(API_MESSAGE_ID_VOLUME_RESP, MsgQueue_ControllerBus, MsgQueue_MusicHandler, sizeof(ApiVolumeResp));
+    if(msg == NULL) {
+        AaSysLogPrint(LOGLEVEL_ERR, "API_MESSAGE_ID_VOLUME_RESP create failed");
+        return kNoMemoryErr;
+    }
+
+    ApiVolumeResp* msg_pl = AaSysComGetPayload(msg);
+    if(*status == 0) {
+        msg_pl->status = true;
     }
     else {
-        user_log("[DBG]ParseVolume: set volume %d success", *volume);
+        msg_pl->status = false;
+    }
+
+    if(kNoErr != AaSysComSend(msg)) {
+        AaSysLogPrint(LOGLEVEL_ERR, "API_MESSAGE_ID_VOLUME_RESP send failed");
     }
 
     return kNoErr;
@@ -327,15 +417,14 @@ static OSStatus ParseTFCardStatus(uint8_t* payload)
     uint16_t* tf = (uint16_t*)(payload + sizeof(uint8_t));
 
     void* msg;
-    ApiTfStatusResp* msg_pl;
 
-    msg = AaSysComCreate(API_MESSAGE_ID_TFSTATUS_RESP, MsgQueue_ControllerBusSend, MsgQueue_DeviceHandler, sizeof(ApiTfStatusResp));
+    msg = AaSysComCreate(API_MESSAGE_ID_TFSTATUS_RESP, MsgQueue_ControllerBus, MsgQueue_DeviceHandler, sizeof(ApiTfStatusResp));
     if(msg == NULL) {
         AaSysLogPrint(LOGLEVEL_ERR, "API_MESSAGE_ID_TFSTATUS_RESP create failed");
         return kNoMemoryErr;
     }
 
-    msg_pl = AaSysComGetPayload(msg);
+    ApiTfStatusResp* msg_pl = AaSysComGetPayload(msg);
     if(*tfstatus != 0) {
         msg_pl->status = false;
     }
@@ -356,6 +445,9 @@ bool ControllerBusInit(void)
 {
     OSStatus err;
 
+    // f411 reset pin initialize
+    MicoGpioInitialize(F411_RESET_PIN, OUTPUT_OPEN_DRAIN_PULL_UP);
+
     // V2 PCB, spi pin reused for uart, can be remove at V3 PCB
     PinInitForUsart();
 
@@ -366,24 +458,30 @@ bool ControllerBusInit(void)
     }
     
     // start the uart receive thread to handle controller bus data
-    err = mico_rtos_create_thread(&bus_recv_handle, MICO_APPLICATION_PRIORITY, "BusRingBufRecv", 
-                                ControllerBusReceivingHandler, CONTROLLERBUS_STACK_SIZE_RINGBUFFER_THREAD, 
+    err = mico_rtos_create_thread(&bus_recv_handle, MICO_APPLICATION_PRIORITY, "CBusProtoHandler", 
+                                ControllerBusProtocolHandler, CONTROLLERBUS_STACK_SIZE_RINGBUFFER_THREAD, 
                                 NULL);
     if(err != kNoErr) {
-        AaSysLogPrint(LOGLEVEL_ERR, "create controller bus receiving thread failed");
+        AaSysLogPrint(LOGLEVEL_ERR, "create controller bus protocol handler thread failed");
         return false;
+    }
+    else {
+        AaSysLogPrint(LOGLEVEL_INF, "create controller bus protocol handler thread success");
     }
 
     // start the uart send thread to handle request message
     err = mico_rtos_create_thread(&bus_send_handle, MICO_APPLICATION_PRIORITY, "BusRequestSend", 
-                                ControllerBusSendandler, CONTROLLERBUS_STACK_SIZE_RINGBUFFER_THREAD, 
+                                ControllerBusMsgHandler, CONTROLLERBUS_STACK_SIZE_RINGBUFFER_THREAD, 
                                 NULL);
     if(err != kNoErr) {
-        AaSysLogPrint(LOGLEVEL_ERR, "create controller bus sending thread failed");
+        AaSysLogPrint(LOGLEVEL_ERR, "create controller bus message handler thread failed");
         return false;
     }
+    else {
+        AaSysLogPrint(LOGLEVEL_INF, "create controller bus message handler thread success");
+    }
 
-    AaSysLogPrint(LOGLEVEL_DBG, "controller bus initialize success");
+    AaSysLogPrint(LOGLEVEL_INF, "controller bus initialize success");
 
     return true;
 }
@@ -394,13 +492,24 @@ bool ControllerBusInit(void)
 #define CONTROLLERBUS_PIN_SCK   CBUS_PIN_SCK
 #define CONTROLLERBUS_PIN_NSS   CBUS_PIN_NSS
 
-void PinInitForUsart(void)
+static void PinInitForUsart(void)
 {
     MicoGpioInitialize(CONTROLLERBUS_PIN_MISO, INPUT_HIGH_IMPEDANCE);
     MicoGpioInitialize(CONTROLLERBUS_PIN_MOSI, INPUT_HIGH_IMPEDANCE);
     MicoGpioInitialize(CONTROLLERBUS_PIN_SCK, INPUT_HIGH_IMPEDANCE);
     MicoGpioInitialize(CONTROLLERBUS_PIN_NSS, INPUT_HIGH_IMPEDANCE);
 }
+
+void ResetF411(void)
+{
+    MicoGpioOutputLow(F411_RESET_PIN);
+    mico_thread_msleep(100);
+    MicoGpioOutputHigh(F411_RESET_PIN);
+    mico_thread_msleep(100);
+
+    AaSysLogPrint(LOGLEVEL_INF, "f411 rest done");
+}
+
 
 
 // end of file

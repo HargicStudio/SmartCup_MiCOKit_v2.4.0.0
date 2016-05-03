@@ -28,6 +28,7 @@
 #include "OMFactory.h"
 #include "MusicMonitor.h"
 #include "controllerBus.h"
+#include "AaInclude.h"
 
 /* User defined debug log functions
  * Add your own tag like: 'USER_DOWNSTREAM', the tag will be added at the beginning of a log
@@ -48,6 +49,9 @@ extern SDevice gDevice;
 
 static bool ParseOMfromCloud(app_context_t *app_context, const char* string);
 bool IsParameterChanged();
+static void SendVolumeReq(u8 volume);
+static void SendTrackListReq(void);
+
 
 
 /* Handle user message from cloud
@@ -143,8 +147,9 @@ static bool ParseOMfromCloud(app_context_t *app_context, const char* string)
                 }
             }
             else if(strcmp(key, "MUSIC-1/Volume") == 0) {
-                SetVolume(json_object_get_int(val));
-                user_log("[DBG]ParseOMfromCloud: get volume %d, playing song", GetVolume());
+                u8 volume = json_object_get_int(val);
+                AaSysLogPrint(LOGLEVEL_DBG, "get setting volume %d from cloud", volume);
+                SendVolumeReq(volume);
             }
             else if(strcmp(key, "MUSIC-1/GetVolume") == 0) {
                 if(json_object_get_boolean(val) == true) {
@@ -157,8 +162,8 @@ static bool ParseOMfromCloud(app_context_t *app_context, const char* string)
             }
             else if(strcmp(key, "MUSIC-1/GetTrackList") == 0) {
                 if(json_object_get_boolean(val) == true) {
-                    user_log("[DBG]ParseOMfromCloud: query track number");
-                    ControllerBusSend(CONTROLLERBUS_CMD_GETTRACKNUM, NULL, 0);
+                    AaSysLogPrint(LOGLEVEL_DBG, "cloud query track list");
+                    SendTrackListReq();
                 }
             }
             else if(strcmp(key, "MUSIC-1/DelTrack") == 0) {
@@ -334,13 +339,6 @@ bool IsParameterChanged()
         set_action = true;
         user_log("[DBG]IsParameterChanged: LedConf change R:%d G:%d B:%d", GetRedConf(), GetGreenConf(), GetBlueConf());
     }
-    if(IsVolumeChanged()) {
-        set_action = true;
-        
-        unsigned char volume = GetVolume();
-        ControllerBusSend(CONTROLLERBUS_CMD_VOLUME, &volume, sizeof(volume));
-        user_log("[DBG]IsParameterChanged: sending config volume");
-    }
     if(IsIfNoDisturbingChanged()) {
         set_action = true;
         user_log("[DBG]IsParameterChanged: IfNoDisturbing change %s", GetIfNoDisturbing() ? "true" : "false");
@@ -401,4 +399,38 @@ bool IsParameterChanged()
     return set_action;
 }
 
+static void SendVolumeReq(u8 volume)
+{
+    void* msg;
+    
+    msg = AaSysComCreate(API_MESSAGE_ID_VOLUME_REQ, MsgQueue_DownStream, MsgQueue_MusicHandler, sizeof(ApiVolumeReq));
+    if(msg == NULL) {
+        AaSysLogPrint(LOGLEVEL_ERR, "API_MESSAGE_ID_VOLUME_REQ create failed");
+        return ;
+    }
+
+    ApiVolumeReq* pl = AaSysComGetPayload(msg);
+    pl->volume = volume;
+
+    if(kNoErr != AaSysComSend(msg)) {
+        AaSysLogPrint(LOGLEVEL_ERR, "API_MESSAGE_ID_VOLUME_REQ send failed");
+    }
+}
+
+static void SendTrackListReq(void)
+{
+    void* msg;
+    
+    msg = AaSysComCreate(API_MESSAGE_ID_TRACKLIST_REQ, MsgQueue_DownStream, MsgQueue_MusicHandler, sizeof(ApiTrackListReq));
+    if(msg == NULL) {
+        AaSysLogPrint(LOGLEVEL_ERR, "API_MESSAGE_ID_TRACKLIST_REQ create failed");
+        return ;
+    }
+
+    if(kNoErr != AaSysComSend(msg)) {
+        AaSysLogPrint(LOGLEVEL_ERR, "API_MESSAGE_ID_TRACKLIST_REQ send failed");
+    }
+}
+
+// end of file
 

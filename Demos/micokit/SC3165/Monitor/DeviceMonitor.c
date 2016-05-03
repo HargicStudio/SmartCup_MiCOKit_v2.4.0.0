@@ -42,6 +42,8 @@ static mico_thread_t _device_handler = NULL;
 // device notify interval, unit: second
 u8 device_notify_interval = 10;//60;
 
+bool _f411_online = false;
+
 
 static void DeviceHandler(void* arg);
 static void DeviceEstimator(void* arg);
@@ -52,7 +54,7 @@ static void PrintQueueValidValue(float* voltage, uint16_t deepth);
 static void SignalStrengthNotification(app_context_t *app_context);
 static void TemperatureNotification();
 static void QueryTfStatus();
-static void HandleTfStatusResponse(void* msg_ptr, app_context_t *app_context);
+static OSStatus HandleTfStatusResponse(void* msg_ptr, app_context_t *app_context);
 
 
 void DeviceInit(app_context_t *app_context)
@@ -123,9 +125,6 @@ static void DeviceEstimator(void* arg)
     err = mico_reload_timer(&timer_device_notify);
     if(err != kNoErr) {
         AaSysLogPrint(LOGLEVEL_ERR, "reload timer_device_notify failed");
-    }
-    else {
-//        user_log("[DBG]DeviceEstimator: reload timer_device_notify success");
     }
     
     PowerNotification(app_context);
@@ -290,20 +289,28 @@ static void QueryTfStatus()
 {
     void* msg;
     
-    msg = AaSysComCreate(API_MESSAGE_ID_TFSTATUS_REQ, MsgQueue_DeviceHandler, MsgQueue_ControllerBusSend, sizeof(ApiTfStatusReq));
+    msg = AaSysComCreate(API_MESSAGE_ID_TFSTATUS_REQ, MsgQueue_DeviceHandler, MsgQueue_ControllerBus, sizeof(ApiTfStatusReq));
     if(msg == NULL) {
-        AaSysLogPrint(LOGLEVEL_ERR, "ApiQueryTfStatus create failed");
+        AaSysLogPrint(LOGLEVEL_ERR, "API_MESSAGE_ID_TFSTATUS_REQ create failed");
         return ;
     }
 
     if(kNoErr != AaSysComSend(msg)) {
-        AaSysLogPrint(LOGLEVEL_ERR, "ApiQueryTfStatus send failed");
+        AaSysLogPrint(LOGLEVEL_ERR, "API_MESSAGE_ID_TFSTATUS_REQ send failed");
     }
 }
 
-static void HandleTfStatusResponse(void* msg_ptr, app_context_t *app_context)
+static OSStatus HandleTfStatusResponse(void* msg_ptr, app_context_t *app_context)
 {
     bool ret;
+
+    SMsgHeader* msg = (SMsgHeader*)msg_ptr;
+    if(msg->pl_size != sizeof(ApiTfStatusResp)) {
+        AaSysLogPrint(LOGLEVEL_ERR, "pl_size %d isn't match sizeof(ApiTfStatusResp) %d", 
+                msg->pl_size, sizeof(ApiTfStatusResp));
+        return kInProgressErr;
+    }
+    
     ApiTfStatusResp* payload = AaSysComGetPayload(msg_ptr);
 
     AaSysLogPrint(LOGLEVEL_DBG, "get TF status %s capacity %d free %d",
@@ -336,6 +343,10 @@ static void HandleTfStatusResponse(void* msg_ptr, app_context_t *app_context)
                 GetTFFree(),
                 ret ? "true" : "false");
     }
+
+    _f411_online = true;
+
+    return kNoErr;
 }
 
 

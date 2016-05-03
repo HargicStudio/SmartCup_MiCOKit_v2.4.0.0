@@ -31,6 +31,9 @@ typedef struct SMsgInternalHeader_t {
 static mico_queue_t msg_queue[MsgQueue_MAX] = {NULL};
 
 
+static char* AaSysComPrintThreadName(SAaSysComSicad t_id);
+
+
 void AaSysComInit(void)
 {
     OSStatus err;
@@ -42,7 +45,7 @@ void AaSysComInit(void)
         if(err != kNoErr) {
             AaSysLogPrint(LOGLEVEL_ERR, "MsgQueue%d initialize failed", i + 1);
         } else {
-            AaSysLogPrint(LOGLEVEL_DBG, "MsgQueue%d initialize success", i + 1);
+            AaSysLogPrint(LOGLEVEL_INF, "MsgQueue%d initialize success", i + 1);
         }
     }
 }
@@ -113,8 +116,10 @@ OSStatus AaSysComSend(void* msg_ptr)
         return kInProgressErr;
     }
 
-    AaSysLogPrint(LOGLEVEL_DBG, "message(0x%04x) have been sent from 0x%02x to 0x%02x", 
-            header.msg_id, header.sender, header.target);
+    AaSysLogPrint(LOGLEVEL_DBG, "message(0x%04x) have been sent from %s to %s", 
+            header.msg_id, 
+            AaSysComPrintThreadName(header.sender), 
+            AaSysComPrintThreadName(header.target));
 
     return kNoErr;
 }
@@ -152,7 +157,9 @@ void* AaSysComReceiveHandler(SAaSysComSicad receiver, u32 timeout)
             return NULL;
         }
 
-        AaSysLogPrint(LOGLEVEL_DBG, "receive message id 0x%04x from 0x%02x success", header.msg_id, header.sender);
+        AaSysLogPrint(LOGLEVEL_DBG, "receive message id 0x%04x from %s success", 
+                header.msg_id, 
+                AaSysComPrintThreadName(header.sender));
         
         return (void*)header.body;
     }
@@ -166,6 +173,17 @@ OSStatus AaSysComDestory(void* msg_ptr)
 {
     if(msg_ptr != NULL) free(msg_ptr);
     return kNoErr;
+}
+
+static char* AaSysComPrintThreadName(SAaSysComSicad t_id)
+{
+    switch(t_id) {
+        case MsgQueue_DownStream: return "DownStream\0";
+        case MsgQueue_DeviceHandler: return "DeviceHandler\0";
+        case MsgQueue_MusicHandler: return "MusicHandler\0";
+        case MsgQueue_ControllerBus: return "ControllerBus\0";
+        default: return "Unknow\0";
+    }
 }
 
 // end of file

@@ -32,9 +32,10 @@ typedef struct SMsgHeader_t {
 
 
 enum {
-    MsgQueue_None = 0,
+    MsgQueue_DownStream,
     MsgQueue_DeviceHandler,
-    MsgQueue_ControllerBusSend,
+    MsgQueue_MusicHandler,
+    MsgQueue_ControllerBus,
     MsgQueue_MAX,
 };
 

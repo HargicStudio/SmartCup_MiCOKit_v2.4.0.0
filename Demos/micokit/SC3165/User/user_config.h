@@ -29,22 +29,8 @@
  ******************************************************************************/
 
 /*------------------------------ product -------------------------------------*/
-#ifdef MICOKIT_3288
-// wes' product, replace it with your own product
-  #define PRODUCT_ID                   "e0ef908d"
-  #define PRODUCT_KEY                  "86cc4e1b-b581-442f-bc73-e6d91df77dd8"
-#elif  MICOKIT_3165
-  #define PRODUCT_ID                   "af0d9d5c"
-  #define PRODUCT_KEY                  "67a58065-35bd-4ac1-8db0-1760e3fd5686"
-#elif  MICOKIT_G55
-  #define PRODUCT_ID                   "5e0f6691"
-  #define PRODUCT_KEY                  "14cf3d82-cdf2-4954-8dc6-0009cc9365f2"
-#elif MICOKIT_LPC5410X
-  #define PRODUCT_ID                   "53ad1eef"
-  #define PRODUCT_KEY                  "4e527b9a-6a22-432b-b25b-e7aaf4d3399c"
-#else
-
-#endif
+#define PRODUCT_ID                   "af0d9d5c"
+#define PRODUCT_KEY                  "67a58065-35bd-4ac1-8db0-1760e3fd5686"
 
 /*******************************************************************************
  *                             CONNECTING

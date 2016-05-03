@@ -94,7 +94,7 @@ OSStatus user_main( app_context_t * const app_context )
     AaSysLogPrint(LOGLEVEL_ERR, "SntpInit finished with err code %d", err);
   }
   else {
-    AaSysLogPrint(LOGLEVEL_DBG, "SntpInit success");
+    AaSysLogPrint(LOGLEVEL_INF, "SntpInit success");
   }
 
 #if 1
