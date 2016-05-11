@@ -12,6 +12,8 @@ History:
 #include "json_c/json.h"
 #include "SendJson.h"
 #include "user_debug.h"
+#include "controllerBus.h"
+#include "AaInclude.h"
 
 
 #ifdef DEBUG
@@ -57,6 +59,11 @@ bool SendJsonInt(app_context_t *arg, char* str, int value)
 {
     bool ret = false;
     json_object *send_json_object = NULL;
+
+    if(!arg->appStatus.fogcloudStatus.isCloudConnected) {
+        AaSysLogPrint(LOGLEVEL_WRN, "cloud disconnected, upload failed");
+        return false;
+    }
   
     send_json_object = json_object_new_object();
     if(NULL == send_json_object){
@@ -78,6 +85,11 @@ bool SendJsonDouble(app_context_t *arg, char* str, double value)
 {
     bool ret = false;
     json_object *send_json_object = NULL;
+
+    if(!arg->appStatus.fogcloudStatus.isCloudConnected) {
+        AaSysLogPrint(LOGLEVEL_WRN, "cloud disconnected, upload failed");
+        return false;
+    }
   
     send_json_object = json_object_new_object();
     if(NULL == send_json_object){
@@ -99,6 +111,11 @@ bool SendJsonBool(app_context_t *arg, char* str, bool value)
 {
     bool ret;
     json_object *send_json_object = NULL;
+
+    if(!arg->appStatus.fogcloudStatus.isCloudConnected) {
+        AaSysLogPrint(LOGLEVEL_WRN, "cloud disconnected, upload failed");
+        return false;
+    }
   
     send_json_object = json_object_new_object();
     if(NULL == send_json_object){
@@ -120,6 +137,11 @@ bool SendJsonLedConf(app_context_t *arg)
 {
     bool ret;
     json_object *send_json_object = NULL;
+
+    if(!arg->appStatus.fogcloudStatus.isCloudConnected) {
+        AaSysLogPrint(LOGLEVEL_WRN, "cloud disconnected, upload failed");
+        return false;
+    }
   
     send_json_object = json_object_new_object();
     if(NULL == send_json_object){
@@ -143,6 +165,11 @@ bool SendJsonNoDisturbingConf(app_context_t *arg)
 {
     bool ret;
     json_object *send_json_object = NULL;
+
+    if(!arg->appStatus.fogcloudStatus.isCloudConnected) {
+        AaSysLogPrint(LOGLEVEL_WRN, "cloud disconnected, upload failed");
+        return false;
+    }
   
     send_json_object = json_object_new_object();
     if(NULL == send_json_object){
@@ -169,6 +196,11 @@ bool SendJsonPickup(app_context_t *arg)
     u8 index;
     char om_string[64];
     json_object *send_json_object = NULL;
+
+    if(!arg->appStatus.fogcloudStatus.isCloudConnected) {
+        AaSysLogPrint(LOGLEVEL_WRN, "cloud disconnected, upload failed");
+        return false;
+    }
   
     send_json_object = json_object_new_object();
     if(NULL == send_json_object){
@@ -197,6 +229,11 @@ bool SendJsonPutdown(app_context_t *arg)
     u8 index;
     char om_string[64];
     json_object *send_json_object = NULL;
+
+    if(!arg->appStatus.fogcloudStatus.isCloudConnected) {
+        AaSysLogPrint(LOGLEVEL_WRN, "cloud disconnected, upload failed");
+        return false;
+    }
   
     send_json_object = json_object_new_object();
     if(NULL == send_json_object){
@@ -227,6 +264,11 @@ bool SendJsonImmediate(app_context_t *arg)
     u8 index;
     char om_string[64];
     json_object *send_json_object = NULL;
+
+    if(!arg->appStatus.fogcloudStatus.isCloudConnected) {
+        AaSysLogPrint(LOGLEVEL_WRN, "cloud disconnected, upload failed");
+        return false;
+    }
   
     send_json_object = json_object_new_object();
     if(NULL == send_json_object){
@@ -255,6 +297,11 @@ bool SendJsonSchedule(app_context_t *arg)
     u8 index;
     char om_string[64];
     json_object *send_json_object = NULL;
+
+    if(!arg->appStatus.fogcloudStatus.isCloudConnected) {
+        AaSysLogPrint(LOGLEVEL_WRN, "cloud disconnected, upload failed");
+        return false;
+    }
   
     send_json_object = json_object_new_object();
     if(NULL == send_json_object){
@@ -307,19 +354,32 @@ bool SendJsonAppointment(app_context_t *arg)
 }
 */
 
-bool SendJsonTrack(app_context_t *arg, STrack* track)
+bool SendJsonTrack(app_context_t *arg, u8 type, STrack* track)
 {
     bool ret;
     json_object *send_json_object = NULL;
     char om_name[TRACKNAME_MAX_LENGTH];
     char om_string[64];
 
+    if(!arg->appStatus.fogcloudStatus.isCloudConnected) {
+        AaSysLogPrint(LOGLEVEL_WRN, "cloud disconnected, upload failed");
+        return false;
+    }
+
     send_json_object = json_object_new_object();
     if(NULL == send_json_object){
         user_log("[ERR]SendJsonTrack: create json object error");
     }
     else {
-        sprintf(om_string, "TRACK-%d/TrackName\0", track->trackIdx);
+        if(type == TRACKTYPE_SYSTEM) {
+            sprintf(om_string, "TRACKSYSTEM-%d/TrackName\0", track->trackIdx);
+        }
+        else if(type == TRACKTYPE_USER) {
+            sprintf(om_string, "TRACKUSER-%d/TrackName\0", track->trackIdx);
+        }
+        else if(type == TRACKTYPE_WECHAT) {
+            sprintf(om_string, "TRACKWECHAT-%d/TrackName\0", track->trackIdx);
+        }
         sprintf(om_name, "%s\0", track->trackName);
         json_object_object_add(send_json_object, om_string, json_object_new_string(om_name));
 

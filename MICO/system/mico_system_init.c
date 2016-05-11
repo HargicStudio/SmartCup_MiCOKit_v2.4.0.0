@@ -115,7 +115,8 @@ OSStatus mico_system_init( mico_Context_t* in_context )
     (MICO_CONFIG_MODE == CONFIG_MODE_SOFT_AP) ||  \
     (MICO_CONFIG_MODE == CONFIG_MODE_EASYLINK_WITH_SOFTAP)
     err = system_easylink_start( in_context );
-    require_noerr( err, exit );
+    // support offline
+//    require_noerr( err, exit );
 #elif ( MICO_CONFIG_MODE == CONFIG_MODE_WAC)
     err = system_easylink_wac_start( in_context );
     require_noerr( err, exit );
@@ -147,6 +148,7 @@ OSStatus mico_system_init( mico_Context_t* in_context )
 #endif
   
 #ifdef AIRKISS_DISCOVERY_ENABLE
+  system_log("access airkiss discovery");
   err = airkiss_discovery_start( AIRKISS_APP_ID, AIRKISS_DEVICE_ID );
   require_noerr( err, exit );
 #endif

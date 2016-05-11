@@ -20,6 +20,7 @@ History:
 #include "user_debug.h"
 #include "outTrigger.h"
 #include "controllerBus.h"
+#include "AaInclude.h"
 
 
 typedef struct SputDownTimer_t {
@@ -63,12 +64,14 @@ extern SSchedule	gSchedule[MAX_DEPTH_SCHEDULE];
 static void health_thread(void* arg);
 static bool NoDisturbing();
 static bool IsPickupSetting();
-static u16 FindPickupTrack();
+static OSStatus FindPickupTrack(u8 *type, u16 *track);
 static bool IsPutDownSetting();
 static void startPutDownTimerGroup();
 static void PutdownTimeout(void* arg);
-static void MOChangedNotification(void *arg);
+//static void MOChangedNotification(void *arg);
 static void ScheduleTimeout(void* arg);
+static void SendPlayReq(u8 t_type, u16 t_idx);
+static void SendQuitReq(void);
 
 
 static void health_thread(void* arg)
@@ -93,11 +96,14 @@ static void health_thread(void* arg)
             if(IsDrinkPutStatusChanged()) {
                 SendJsonBool(app_context, "HEALTH-1/DrinkPutStatus", GetDrinkPutStatus());
                 if(!NoDisturbing() && IsPickupSetting()) {
-                    u16 track_id = FindPickupTrack();
-                    user_log("[DBG]health_thread: track index %d will be played", track_id);
+                    u8 type;
+                    u16 track_id;
+                    
+                    FindPickupTrack(&type, &track_id);
+                    AaSysLogPrint(LOGLEVEL_DBG, "track type %d index %d will be played", type, track_id);
                     // stop last track before play new song
-                    ControllerBusSend(CONTROLLERBUS_CMD_EXIT, NULL, 0);
-                    ControllerBusSend(CONTROLLERBUS_CMD_PLAY, (unsigned char*)&track_id, sizeof(track_id));
+                    SendQuitReq();
+                    SendPlayReq(type, track_id);
                 }
             }
         }
@@ -254,16 +260,16 @@ static bool IsPickupSetting()
     return false;
 }
 
-static u16 FindPickupTrack()
+static OSStatus FindPickupTrack(u8 *type, u16 *track)
 {
-    u16 track;
     static u8 count = 0;
 
     while(1) {
         if(GetPickUpEnable(count)) {
-            track = GetPickUpSelTrack(count);
+            *type = GetPickUpTrackType(count);
+            *track = GetPickUpSelTrack(count);
             count = ++count >= MAX_DEPTH_PICKUP ? 0 : count;
-            return track;
+            return kNoErr;
         }
         else {
             count = ++count >= MAX_DEPTH_PICKUP ? 0 : count;
@@ -294,10 +300,11 @@ static void startPutDownTimerGroup()
         }
 
         if(GetPutDownRemindDelay(idx) == 0) {
+            u8 type = GetPutDownTrackType(idx);
             u16 track_id = GetPutDownSelTrack(idx);
-            user_log("[DBG]startPutDownTimerGroup: track index %d will be played", track_id);
-            ControllerBusSend(CONTROLLERBUS_CMD_EXIT, NULL, 0);
-            ControllerBusSend(CONTROLLERBUS_CMD_PLAY, (unsigned char*)&track_id, sizeof(track_id));
+            AaSysLogPrint(LOGLEVEL_DBG, "track type %d index %d will be played", type, track_id);
+            SendQuitReq();
+            SendPlayReq(type, track_id);
         }
         else {
             // if another putdown action trigger, reset last timers
@@ -323,10 +330,11 @@ static void PutdownTimeout(void* arg)
     
     // if this putdown tag is disable during timer timeout, do not need to play song
     if(GetPutDownEnable(mng->index)) {
+        u8 type = GetPutDownTrackType(mng->index);
         u16 track_id = GetPutDownSelTrack(mng->index);
-        user_log("[DBG]PutdownTimeout: track index %d will be played", track_id);
-        ControllerBusSend(CONTROLLERBUS_CMD_EXIT, NULL, 0);
-        ControllerBusSend(CONTROLLERBUS_CMD_PLAY, (unsigned char*)&track_id, sizeof(track_id));
+        AaSysLogPrint(LOGLEVEL_DBG, "track type %d index %d will be played", type, track_id);
+        SendQuitReq();
+        SendPlayReq(type, track_id);
     }
 }
 
@@ -374,12 +382,48 @@ static void ScheduleTimeout(void* arg)
 
     times = GetScheduleRemindTimes(mng->index);
     while(times--) {
+        u8 type = GetScheduleTrackType(mng->index);
         u16 track_id = GetScheduleSelTrack(mng->index);
-        user_log("[DBG]ScheduleTimeout: track index %d will be played %d times", track_id, times);
-        ControllerBusSend(CONTROLLERBUS_CMD_EXIT, NULL, 0);
-        ControllerBusSend(CONTROLLERBUS_CMD_PLAY, (unsigned char*)&track_id, sizeof(track_id));
+        AaSysLogPrint(LOGLEVEL_DBG, "track type %d index %d will be played %d times", type, track_id, times);
+        SendQuitReq();
+        SendPlayReq(type, track_id);
     }
 }
+
+static void SendPlayReq(u8 t_type, u16 t_idx)
+{
+    void* msg;
+    
+    msg = AaSysComCreate(API_MESSAGE_ID_PLAY_REQ, MsgQueue_HealthHandler, MsgQueue_MusicHandler, sizeof(ApiPlayReq));
+    if(msg == NULL) {
+        AaSysLogPrint(LOGLEVEL_ERR, "API_MESSAGE_ID_PLAY_REQ create failed");
+        return ;
+    }
+
+    ApiPlayReq* pl = AaSysComGetPayload(msg);
+    pl->type = t_type;
+    pl->track_index = t_idx;
+
+    if(kNoErr != AaSysComSend(msg)) {
+        AaSysLogPrint(LOGLEVEL_ERR, "API_MESSAGE_ID_PLAY_REQ send failed");
+    }
+}
+
+static void SendQuitReq(void)
+{
+    void* msg;
+    
+    msg = AaSysComCreate(API_MESSAGE_ID_QUIT_REQ, MsgQueue_HealthHandler, MsgQueue_MusicHandler, sizeof(ApiQuitReq));
+    if(msg == NULL) {
+        AaSysLogPrint(LOGLEVEL_ERR, "API_MESSAGE_ID_QUIT_REQ create failed");
+        return ;
+    }
+
+    if(kNoErr != AaSysComSend(msg)) {
+        AaSysLogPrint(LOGLEVEL_ERR, "API_MESSAGE_ID_QUIT_REQ send failed");
+    }
+}
+
 
 // end of file
 

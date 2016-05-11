@@ -26,25 +26,29 @@ History:
 #define NODISTURBING_STARTMINUTE_BIT    (1<<2)
 #define NODISTURBING_ENDMINUTE_BIT      (1<<3)
 
-#define PICKUP_MASK                     (0x03)
+#define PICKUP_MASK                     (0x07)
 #define PICKUP_ENABLE_BIT               (1<<0)
 #define PICKUP_SELTRACK_BIT             (1<<1)
+#define PICKUP_TRACKTYPE_BIT            (1<<2)
 
-#define PUTDOWN_MASK                    (0x07)
+#define PUTDOWN_MASK                    (0x0f)
 #define PUTDOWN_ENABLE_BIT              (1<<0)
 #define PUTDOWN_SELTRACK_BIT            (1<<1)
 #define PUTDOWN_REMINDDELAY_BIT         (1<<2)
+#define PUTDOWN_TRACKTYPE_BIT           (1<<3)
 
-#define IMMEDIATE_MASK                  (0x03)
+#define IMMEDIATE_MASK                  (0x07)
 #define IMMEDIATE_ENABLE_BIT            (1<<0)
 #define IMMEDIATE_SELTRACK_BIT          (1<<1)
+#define IMMEDIATE_TRACKTYPE_BIT         (1<<2)
 
-#define SCHEDULE_MASK                   (0x1f)
+#define SCHEDULE_MASK                   (0x3f)
 #define SCHEDULE_ENABLE_BIT             (1<<0)
 #define SCHEDULE_SELTRACK_BIT           (1<<1)
 #define SCHEDULE_REMINDHOUR_BIT         (1<<2)
 #define SCHEDULE_REMINDMINUTE_BIT       (1<<3)
 #define SCHEDULE_REMINDTIMES_BIT        (1<<4)
+#define SCHEDULE_TRACKTYPE_BIT          (1<<5)
 
 
 // used for storage buffer
@@ -647,6 +651,26 @@ bool GetPickUpEnable(u8 index)
     return gPickup[index].enable;
 }
 
+void SetPickUpTrackType(u8 index, u8 type)
+{
+    mico_rtos_lock_mutex(&omMutex);
+
+    if(index >= MAX_DEPTH_PICKUP) {
+        user_log("[ERR]SetPickUpTrackType: index(%d) exceed the depth(%d)", index, MAX_DEPTH_PICKUP);
+        return ;
+    }
+
+    sPickup_temp[index].type = type;
+    isPickupChanged[index] |= PICKUP_TRACKTYPE_BIT;
+
+    mico_rtos_unlock_mutex(&omMutex);
+}
+
+u8 GetPickUpTrackType(u8 index)
+{
+    return gPickup[index].type;
+}
+
 void SetPickUpSelTrack(u8 index, u16 track)
 {
     mico_rtos_lock_mutex(&omMutex);
@@ -702,6 +726,26 @@ void SetPutDownEnable(u8 index, bool enable)
 bool GetPutDownEnable(u8 index)
 {
     return gPutdown[index].enable;
+}
+
+void SetPutDownTrackType(u8 index, u8 type)
+{
+    mico_rtos_lock_mutex(&omMutex);
+    
+    if(index >= MAX_DEPTH_PUTDOWN) {
+        user_log("[ERR]SetPutDownTrackType: index(%d) exceed the depth(%d)", index, MAX_DEPTH_PUTDOWN);
+        return ;
+    }
+
+    sPutdown_temp[index].type = type;
+    isPutdownChanged[index] |= PUTDOWN_TRACKTYPE_BIT;
+
+    mico_rtos_unlock_mutex(&omMutex);
+}
+
+u8 GetPutDownTrackType(u8 index)
+{
+    return gPutdown[index].type;
 }
 
 void SetPutDownSelTrack(u8 index, u16 track)
@@ -781,6 +825,26 @@ bool GetImmediateEnable(u8 index)
     return gImmediate[index].enable;
 }
 
+void SetImmediateTrackType(u8 index, u8 type)
+{
+    mico_rtos_lock_mutex(&omMutex);
+    
+    if(index >= MAX_DEPTH_IMMEDIATE) {
+        user_log("[ERR]SetImmediateTrackType: index(%d) exceed the depth(%d)", index, MAX_DEPTH_IMMEDIATE);
+        return ;
+    }
+
+    sImmediate_temp[index].type = type;
+    isImmediateChanged[index] |= IMMEDIATE_TRACKTYPE_BIT;
+
+    mico_rtos_unlock_mutex(&omMutex);
+}
+
+u8 GetImmediateTrackType(u8 index)
+{
+    return gImmediate[index].type;
+}
+
 void SetImmediateSelTrack(u8 index, u16 track)
 {
     mico_rtos_lock_mutex(&omMutex);
@@ -837,6 +901,27 @@ bool GetScheduleEnable(u8 index)
 {
     return gSchedule[index].enable;
 }
+
+void SetScheduleTrackType(u8 index, u8 type)
+{
+    mico_rtos_lock_mutex(&omMutex);
+    
+    if(index >= MAX_DEPTH_SCHEDULE) {
+        user_log("[ERR]SetScheduleTrackType: index(%d) exceed the depth(%d)", index, MAX_DEPTH_SCHEDULE);
+        return ;
+    }
+
+    sSchedule_temp[index].type = type;
+    isScheduleChanged[index] |= SCHEDULE_TRACKTYPE_BIT;
+
+    mico_rtos_unlock_mutex(&omMutex);
+}
+
+u8 GetScheduleTrackType(u8 index)
+{
+    return gSchedule[index].type;
+}
+
 
 void SetScheduleSelTrack(u8 index, u16 track)
 {

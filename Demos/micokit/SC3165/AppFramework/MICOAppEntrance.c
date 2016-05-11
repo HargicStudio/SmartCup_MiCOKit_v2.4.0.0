@@ -135,7 +135,9 @@ int application_start(void)
   }
 
   /* mico system initialize */
+  app_log("start mico_system_init");
   err = mico_system_init( mico_context );
+  app_log("mico_system_init return with err %d", err);
   require_noerr( err, exit );
 //  MicoSysLed(true);
   
@@ -144,6 +146,8 @@ int application_start(void)
                                     (void *)appNotify_ConnectFailedHandler, app_context->mico_context );
   require_noerr_action(err, exit, 
                        app_log("ERROR: MICOAddNotification (mico_notify_WIFI_CONNECT_FAILED) failed!") );
+
+  app_log("system notify registered");
   
 //#ifdef USE_MiCOKit_EXT
 //  /* user test mode to test MiCOKit-EXT board */
@@ -163,13 +167,17 @@ int application_start(void)
   while(1){
     if( mico_context->flashContentInRam.micoSystemConfig.configured == wLanUnConfigured ||
        mico_context->flashContentInRam.micoSystemConfig.configured == unConfigured){
-         mico_thread_msleep(100);
+//         mico_thread_msleep(100);
+
+          app_log("NO wifi configuration, continue to run");
+          break;
        }
     else{
       break;
     }
   }
 
+  app_log("start Bonjour service");
   /* Bonjour for service searching */
   MICOStartBonjourService( Station, app_context );
     
@@ -195,6 +203,7 @@ int application_start(void)
   app_log("MICO CloudService: FogCloud.");
   err = MiCOStartFogCloudService( app_context );
   require_noerr_action( err, exit, app_log("ERROR: Unable to start FogCloud service.") );
+  app_log("fog cloud service initialize with err %d", err);
 #elif (MICO_CLOUD_TYPE == CLOUD_ALINK)
   app_log("MICO CloudService: Alink.");
 #elif (MICO_CLOUD_TYPE == CLOUD_DISABLED)

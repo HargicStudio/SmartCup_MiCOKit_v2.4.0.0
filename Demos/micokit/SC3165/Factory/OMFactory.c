@@ -173,6 +173,12 @@ static bool ParseOM(const char* string)
                         break;
                     }
 
+                    sprintf(om_string, "HEALTH-1/PICKUP-%d/TrackType\0", index + 1);
+                    if(strncmp(key, om_string, strlen(om_string)) == 0) {
+                        SetPickUpTrackType(index, json_object_get_int(val));
+                        break;
+                    }
+
                     sprintf(om_string, "HEALTH-1/PICKUP-%d/SelTrack\0", index + 1);
                     if(strncmp(key, om_string, strlen(om_string)) == 0) {
                         SetPickUpSelTrack(index, json_object_get_int(val));
@@ -194,6 +200,12 @@ static bool ParseOM(const char* string)
                         break;
                     }
 
+                    sprintf(om_string, "HEALTH-1/PUTDOWN-%d/TrackType\0", index + 1);
+                    if(strncmp(key, om_string, strlen(om_string)) == 0) {
+                        SetPutDownTrackType(index, json_object_get_int(val));
+                        break;
+                    }
+
                     sprintf(om_string, "HEALTH-1/PUTDOWN-%d/SelTrack\0", index + 1);
                     if(strncmp(key, om_string, strlen(om_string)) == 0) {
                         SetPutDownSelTrack(index, json_object_get_int(val));
@@ -201,11 +213,18 @@ static bool ParseOM(const char* string)
                     }
                 }
             }
+/*            
             else if(strncmp(key, "HEALTH-1/IMMEDIATE", strlen("HEALTH-1/IMMEDIATE")) == 0) {
                 for(index = 0; index < MAX_DEPTH_IMMEDIATE; index++) {
                     sprintf(om_string, "HEALTH-1/IMMEDIATE-%d/Enable\0", index + 1);
                     if(strncmp(key, om_string, strlen(om_string)) == 0) {
                         SetImmediateEnable(index, json_object_get_boolean(val));
+                        break;
+                    }
+
+                    sprintf(om_string, "HEALTH-1/IMMEDIATE-%d/TrackType\0", index + 1);
+                    if(strncmp(key, om_string, strlen(om_string)) == 0) {
+                        SetImmediateTrackType(index, json_object_get_int(val));
                         break;
                     }
 
@@ -216,6 +235,7 @@ static bool ParseOM(const char* string)
                     }
                 }
             }
+*/            
             else if(strncmp(key, "HEALTH-1/SCHEDULE", strlen("HEALTH-1/SCHEDULE")) == 0) {
                 for(index = 0; index < MAX_DEPTH_SCHEDULE; index++) {
                     sprintf(om_string, "HEALTH-1/SCHEDULE-%d/Enable\0", index + 1);
@@ -239,6 +259,12 @@ static bool ParseOM(const char* string)
                     sprintf(om_string, "HEALTH-1/SCHEDULE-%d/RemindTimes\0", index + 1);
                     if(strncmp(key, om_string, strlen(om_string)) == 0) {
                         SetScheduleRemindTimes(index, json_object_get_int(val));
+                        break;
+                    }
+
+                    sprintf(om_string, "HEALTH-1/SCHEDULE-%d/TrackType\0", index + 1);
+                    if(strncmp(key, om_string, strlen(om_string)) == 0) {
+                        SetScheduleTrackType(index, json_object_get_int(val));
                         break;
                     }
 
@@ -324,6 +350,9 @@ void OMFactorySave()
             sprintf(om_string, "HEALTH-1/PICKUP-%d/Enable\0", index + 1);
             json_object_object_add(save_json_object, om_string, json_object_new_boolean(GetPickUpEnable(index)));
 
+            sprintf(om_string, "HEALTH-1/PICKUP-%d/TrackType\0", index + 1);
+            json_object_object_add(save_json_object, om_string, json_object_new_int(GetPickUpTrackType(index)));
+            
             sprintf(om_string, "HEALTH-1/PICKUP-%d/SelTrack\0", index + 1);
             json_object_object_add(save_json_object, om_string, json_object_new_int(GetPickUpSelTrack(index)));
         }
@@ -334,16 +363,24 @@ void OMFactorySave()
             sprintf(om_string, "HEALTH-1/PUTDOWN-%d/RemindDelay\0", index + 1);
             json_object_object_add(save_json_object, om_string, json_object_new_int(GetPutDownRemindDelay(index)));
 
+            sprintf(om_string, "HEALTH-1/PUTDOWN-%d/TrackType\0", index + 1);
+            json_object_object_add(save_json_object, om_string, json_object_new_int(GetPutDownTrackType(index)));
+
             sprintf(om_string, "HEALTH-1/PUTDOWN-%d/SelTrack\0", index + 1);
             json_object_object_add(save_json_object, om_string, json_object_new_int(GetPutDownSelTrack(index)));
         }
+/*        
         for(index = 0; index < MAX_DEPTH_IMMEDIATE; index++) {
             sprintf(om_string, "HEALTH-1/IMMEDIATE-%d/Enable\0", index + 1);
             json_object_object_add(save_json_object, om_string, json_object_new_boolean(GetImmediateEnable(index)));
 
+            sprintf(om_string, "HEALTH-1/IMMEDIATE-%d/TrackType\0", index + 1);
+            json_object_object_add(save_json_object, om_string, json_object_new_int(GetImmediateTrackType(index)));
+
             sprintf(om_string, "HEALTH-1/IMMEDIATE-%d/SelTrack\0", index + 1);
             json_object_object_add(save_json_object, om_string, json_object_new_int(GetImmediateSelTrack(index)));
         }
+*/        
         for(index = 0; index < MAX_DEPTH_SCHEDULE; index++) {
             sprintf(om_string, "HEALTH-1/SCHEDULE-%d/Enable\0", index + 1);
             json_object_object_add(save_json_object, om_string, json_object_new_boolean(GetScheduleEnable(index)));
@@ -356,6 +393,9 @@ void OMFactorySave()
 
             sprintf(om_string, "HEALTH-1/SCHEDULE-%d/RemindTimes\0", index + 1);
             json_object_object_add(save_json_object, om_string, json_object_new_int(GetScheduleRemindTimes(index)));
+
+            sprintf(om_string, "HEALTH-1/SCHEDULE-%d/TrackType\0", index + 1);
+            json_object_object_add(save_json_object, om_string, json_object_new_int(GetScheduleTrackType(index)));
 
             sprintf(om_string, "HEALTH-1/SCHEDULE-%d/SelTrack\0", index + 1);
             json_object_object_add(save_json_object, om_string, json_object_new_int(GetScheduleSelTrack(index)));
@@ -419,22 +459,28 @@ static void SaveObjectModelDefaultParameter()
     
     for(index = 0; index < MAX_DEPTH_PICKUP; index++) {
         SetPickUpEnable(index, false);
+        SetPickUpTrackType(index, 0);
         SetPickUpSelTrack(index, 0);
     }
     for(index = 0; index < MAX_DEPTH_PUTDOWN; index++) {
         SetPutDownEnable(index, false);
         SetPutDownRemindDelay(index, 0);
+        SetPutDownTrackType(index, 0);
         SetPutDownSelTrack(index, 0);
     }
+/*    
     for(index = 0; index < MAX_DEPTH_IMMEDIATE; index++) {
         SetImmediateEnable(index, false);
+        SetImmediateTrackType(index, 0);
         SetImmediateSelTrack(index, 0);
     }
+*/    
     for(index = 0; index < MAX_DEPTH_SCHEDULE; index++) {
         SetScheduleEnable(index, false);
         SetScheduleRemindHour(index, 0);
         SetScheduleRemindMinute(index, 0);
         SetScheduleRemindTimes(index, 0);
+        SetScheduleTrackType(index, 0);
         SetScheduleSelTrack(index, 0);
     }
 
@@ -455,9 +501,11 @@ static void SaveObjectModelDefaultParameter()
     for(index = 0; index < MAX_DEPTH_PUTDOWN; index++) {
         IsPutdownChanged(index);
     }
+/*    
     for(index = 0; index < MAX_DEPTH_IMMEDIATE; index++) {
         IsImmediateChanged(index);
     }
+*/    
     for(index = 0; index < MAX_DEPTH_SCHEDULE; index++) {
         IsScheduleChanged(index);
     }
@@ -483,22 +531,28 @@ static void PrintInitParameter()
 
     for(index = 0; index < MAX_DEPTH_PICKUP; index++) {
         user_log("[DBG]PrintInitParameter: HEALTH-1/PICKUP-%d/Enable: %s", index, GetPickUpEnable(index) ? "true" : "false");
+        user_log("[DBG]PrintInitParameter: HEALTH-1/PICKUP-%d/TrackType: %d", index, GetPickUpTrackType(index));
         user_log("[DBG]PrintInitParameter: HEALTH-1/PICKUP-%d/SelTrack: %d", index, GetPickUpSelTrack(index));
     }
     for(index = 0; index < MAX_DEPTH_PUTDOWN; index++) {
         user_log("[DBG]PrintInitParameter: HEALTH-1/PUTDOWN-%d/Enable: %s", index, GetPutDownEnable(index) ? "true" : "false");
         user_log("[DBG]PrintInitParameter: HEALTH-1/PUTDOWN-%d/RemindDelay: %d", index, GetPutDownRemindDelay(index));
+        user_log("[DBG]PrintInitParameter: HEALTH-1/PUTDOWN-%d/TrackType: %d", index, GetPutDownTrackType(index));
         user_log("[DBG]PrintInitParameter: HEALTH-1/PUTDOWN-%d/SelTrack: %d", index, GetPutDownSelTrack(index));
     }
+/*    
     for(index = 0; index < MAX_DEPTH_IMMEDIATE; index++) {
         user_log("[DBG]PrintInitParameter: HEALTH-1/IMMEDIATE-%d/Enable: %s", index, GetImmediateEnable(index) ? "true" : "false");
+        user_log("[DBG]PrintInitParameter: HEALTH-1/IMMEDIATE-%d/TrackType: %d", index, GetImmediateTrackType(index));
         user_log("[DBG]PrintInitParameter: HEALTH-1/IMMEDIATE-%d/SelTrack: %d", index, GetImmediateSelTrack(index));
     }
+*/    
     for(index = 0; index < MAX_DEPTH_SCHEDULE; index++) {
         user_log("[DBG]PrintInitParameter: HEALTH-1/SCHEDULE-%d/Enable: %s", index, GetScheduleEnable(index) ? "true" : "false");
         user_log("[DBG]PrintInitParameter: HEALTH-1/SCHEDULE-%d/RemindDelay: %d", index, GetScheduleRemindHour(index));
         user_log("[DBG]PrintInitParameter: HEALTH-1/SCHEDULE-%d/RemindDelay: %d", index, GetScheduleRemindMinute(index));
         user_log("[DBG]PrintInitParameter: HEALTH-1/SCHEDULE-%d/RemindDelay: %d", index, GetScheduleRemindTimes(index));
+        user_log("[DBG]PrintInitParameter: HEALTH-1/SCHEDULE-%d/TrackType: %d", index, GetScheduleTrackType(index));
         user_log("[DBG]PrintInitParameter: HEALTH-1/SCHEDULE-%d/SelTrack: %d", index, GetScheduleSelTrack(index));
     }
 }

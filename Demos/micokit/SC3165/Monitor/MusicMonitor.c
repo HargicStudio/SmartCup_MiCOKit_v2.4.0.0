@@ -48,6 +48,10 @@ static void SendTrackNumberReq(u8 track_type);
 static void SendTrackNameReq(u8 t_type, u16 t_idx);
 static OSStatus HandleTrackNumResp(void* msg_ptr);
 static OSStatus HandleTrackNameResp(void* msg_ptr, app_context_t *app_context);
+static OSStatus HandlePlayReq(void* msg_ptr);
+static OSStatus HandlePlayResp(void* msg_ptr);
+static OSStatus HandleQuitReq(void* msg_ptr);
+static OSStatus HandleQuitResp(void* msg_ptr);
 
 
 OSStatus MusicInit(app_context_t *app_context)
@@ -94,6 +98,7 @@ static void MusicHandler(void* arg)
             case API_MESSAGE_ID_TRACKNUM_RESP:
                 HandleTrackNumResp(msg_ptr);
                 if(_track_number_all != 0) {
+                    // currently TrackType start from 0 and TrackIndex start from 1
                     _track_number_index++;
                     SendTrackNameReq(_track_type_index, _track_number_index);
                 }
@@ -121,6 +126,18 @@ static void MusicHandler(void* arg)
                     // else, all track type have been query
                 }
                 break;
+            case API_MESSAGE_ID_PLAY_REQ:
+                HandlePlayReq(msg_ptr);
+                break;
+            case API_MESSAGE_ID_PLAY_RESP:
+                HandlePlayResp(msg_ptr);
+                break;
+            case API_MESSAGE_ID_QUIT_REQ:
+                HandleQuitReq(msg_ptr);
+                break;
+            case API_MESSAGE_ID_QUIT_RESP:
+                HandleQuitResp(msg_ptr);
+                break;
             default: 
                 AaSysLogPrint(LOGLEVEL_WRN, "no message id 0x%04x", msg->msg_id); 
                 break;
@@ -134,7 +151,7 @@ static OSStatus HandleVolumeReq(void* msg_ptr)
 {
     SMsgHeader* msg = (SMsgHeader*)msg_ptr;
     if(msg->pl_size != sizeof(ApiVolumeReq)) {
-        AaSysLogPrint(LOGLEVEL_ERR, "pl_size %d isn't match sizeof(ApiVolumeReq) %d", 
+        AaSysLogPrint(LOGLEVEL_ERR, "pl_size %d don't match sizeof(ApiVolumeReq) %d", 
                 msg->pl_size, sizeof(ApiVolumeReq));
         return kInProgressErr;
     }
@@ -167,7 +184,7 @@ static OSStatus HandleVolumeResp(void* msg_ptr)
 {
     SMsgHeader* msg = (SMsgHeader*)msg_ptr;
     if(msg->pl_size != sizeof(ApiVolumeResp)) {
-        AaSysLogPrint(LOGLEVEL_ERR, "pl_size %d isn't match sizeof(ApiVolumeResp) %d", 
+        AaSysLogPrint(LOGLEVEL_ERR, "pl_size %d don't match sizeof(ApiVolumeResp) %d", 
                 msg->pl_size, sizeof(ApiVolumeResp));
         return kInProgressErr;
     }
@@ -196,7 +213,7 @@ static OSStatus HandleTrackListReq(void* msg_ptr)
 {
     SMsgHeader* msg = (SMsgHeader*)msg_ptr;
     if(msg->pl_size != sizeof(ApiTrackListReq)) {
-        AaSysLogPrint(LOGLEVEL_ERR, "pl_size %d isn't match sizeof(ApiTrackListReq) %d", 
+        AaSysLogPrint(LOGLEVEL_ERR, "pl_size %d don't match sizeof(ApiTrackListReq) %d", 
                 msg->pl_size, sizeof(ApiTrackListReq));
         return kInProgressErr;
     }
@@ -268,7 +285,7 @@ static OSStatus HandleTrackNumResp(void* msg_ptr)
     _track_number_all = pl->track_num;
     _track_number_index = 0;
     
-    AaSysLogPrint(LOGLEVEL_DBG, "get track_type %d track_number %d", pl->type, pl->track_num);
+    AaSysLogPrint(LOGLEVEL_DBG, "get track_type %d track_number %d at %s", pl->type, pl->track_num, __FILE__);
 
     return kNoErr;
 }
@@ -302,7 +319,85 @@ static OSStatus HandleTrackNameResp(void* msg_ptr, app_context_t *app_context)
     sprintf(track.trackName, "%s\0", pl->name);
 
     // upload to cloud
-    SendJsonTrack(app_context, &track);
+    SendJsonTrack(app_context, pl->type, &track);
+
+    return kNoErr;
+}
+
+static OSStatus HandlePlayReq(void* msg_ptr)
+{
+    SMsgHeader* msg = (SMsgHeader*)msg_ptr;
+    if(msg->pl_size != sizeof(ApiPlayReq)) {
+        AaSysLogPrint(LOGLEVEL_ERR, "pl_size %d don't match sizeof(ApiPlayReq) %d", 
+                msg->pl_size, sizeof(ApiPlayReq));
+        return kInProgressErr;
+    }
+
+    AaSysComForward(msg_ptr, MsgQueue_MusicHandler, MsgQueue_ControllerBus);
+
+    return kNoErr;
+}
+
+static OSStatus HandlePlayResp(void* msg_ptr)
+{
+    SMsgHeader* msg = (SMsgHeader*)msg_ptr;
+    if(msg->pl_size != sizeof(ApiPlayResp)) {
+        AaSysLogPrint(LOGLEVEL_ERR, "pl_size %d don't match sizeof(ApiPlayResp) %d", 
+                msg->pl_size, sizeof(ApiPlayResp));
+        return kInProgressErr;
+    }
+    
+    ApiPlayResp* pl = AaSysComGetPayload(msg_ptr);
+
+    AaSysLogPrint(LOGLEVEL_DBG, "get play response status %s", pl->status ? "true" : "false");
+
+    if(pl->status == true) {
+        AaSysLogPrint(LOGLEVEL_DBG, "track play success");
+    }
+    else {
+        AaSysLogPrint(LOGLEVEL_WRN, "track play failed");
+
+        // TODO: any process
+    }
+
+    return kNoErr;
+}
+
+static OSStatus HandleQuitReq(void* msg_ptr)
+{
+    SMsgHeader* msg = (SMsgHeader*)msg_ptr;
+    if(msg->pl_size != sizeof(ApiQuitReq)) {
+        AaSysLogPrint(LOGLEVEL_ERR, "pl_size %d don't match sizeof(ApiQuitReq) %d", 
+                msg->pl_size, sizeof(ApiQuitReq));
+        return kInProgressErr;
+    }
+
+    AaSysComForward(msg_ptr, MsgQueue_MusicHandler, MsgQueue_ControllerBus);
+
+    return kNoErr;
+}
+
+static OSStatus HandleQuitResp(void* msg_ptr)
+{
+    SMsgHeader* msg = (SMsgHeader*)msg_ptr;
+    if(msg->pl_size != sizeof(ApiQuitResp)) {
+        AaSysLogPrint(LOGLEVEL_ERR, "pl_size %d don't match sizeof(ApiQuitResp) %d", 
+                msg->pl_size, sizeof(ApiQuitResp));
+        return kInProgressErr;
+    }
+    
+    ApiQuitResp* pl = AaSysComGetPayload(msg_ptr);
+
+    AaSysLogPrint(LOGLEVEL_DBG, "get quit response status %s", pl->status ? "true" : "false");
+
+    if(pl->status == true) {
+        AaSysLogPrint(LOGLEVEL_DBG, "track quit success");
+    }
+    else {
+        AaSysLogPrint(LOGLEVEL_WRN, "track quit failed");
+
+        // TODO: any process
+    }
 
     return kNoErr;
 }

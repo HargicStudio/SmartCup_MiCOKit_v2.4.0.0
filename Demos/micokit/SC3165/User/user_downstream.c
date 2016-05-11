@@ -51,6 +51,8 @@ static bool ParseOMfromCloud(app_context_t *app_context, const char* string);
 bool IsParameterChanged();
 static void SendVolumeReq(u8 volume);
 static void SendTrackListReq(void);
+static void SendPlayReq(u8 t_type, u16 t_idx);
+static void SendQuitReq(void);
 
 
 
@@ -193,6 +195,19 @@ static bool ParseOMfromCloud(app_context_t *app_context, const char* string)
                         break;
                     }
 
+                    sprintf(om_string, "HEALTH-1/PICKUP-%d/TrackType\0", index + 1);
+                    if(strncmp(key, om_string, strlen(om_string)) == 0) {
+                        // "json_val - 1" mean cloud define TrackType from System as 1 but local as 0
+                        u8 type = json_object_get_int(val) - 1;
+                        if(true == CheckTrackType(type)) {
+                            SetPickUpTrackType(index, type);
+                        }
+                        else {
+                            AaSysLogPrint(LOGLEVEL_WRN, "get wrong TrackType %d from could", type);
+                        }
+                        break;
+                    }
+                    
                     sprintf(om_string, "HEALTH-1/PICKUP-%d/SelTrack\0", index + 1);
                     if(strncmp(key, om_string, strlen(om_string)) == 0) {
                         SetPickUpSelTrack(index, json_object_get_int(val));
@@ -214,6 +229,18 @@ static bool ParseOMfromCloud(app_context_t *app_context, const char* string)
                         break;
                     }
 
+                    sprintf(om_string, "HEALTH-1/PUTDOWN-%d/TrackType\0", index + 1);
+                    if(strncmp(key, om_string, strlen(om_string)) == 0) {
+                        u8 type = json_object_get_int(val) - 1;
+                        if(true == CheckTrackType(type)) {
+                            SetPutDownTrackType(index, type);
+                        }
+                        else {
+                            AaSysLogPrint(LOGLEVEL_WRN, "get wrong TrackType %d from could", type);
+                        }
+                        break;
+                    }
+                    
                     sprintf(om_string, "HEALTH-1/PUTDOWN-%d/SelTrack\0", index + 1);
                     if(strncmp(key, om_string, strlen(om_string)) == 0) {
                         SetPutDownSelTrack(index, json_object_get_int(val));
@@ -229,6 +256,18 @@ static bool ParseOMfromCloud(app_context_t *app_context, const char* string)
                         break;
                     }
 
+                    sprintf(om_string, "HEALTH-1/IMMEDIATE-%d/TrackType\0", index + 1);
+                    if(strncmp(key, om_string, strlen(om_string)) == 0) {
+                        u8 type = json_object_get_int(val) - 1;
+                        if(true == CheckTrackType(type)) {
+                            SetImmediateTrackType(index, type);
+                        }
+                        else {
+                            AaSysLogPrint(LOGLEVEL_WRN, "get wrong TrackType %d from could", type);
+                        }
+                        break;
+                    }
+                    
                     sprintf(om_string, "HEALTH-1/IMMEDIATE-%d/SelTrack\0", index + 1);
                     if(strncmp(key, om_string, strlen(om_string)) == 0) {
                         SetImmediateSelTrack(index, json_object_get_int(val));
@@ -259,6 +298,18 @@ static bool ParseOMfromCloud(app_context_t *app_context, const char* string)
                     sprintf(om_string, "HEALTH-1/SCHEDULE-%d/RemindTimes\0", index + 1);
                     if(strncmp(key, om_string, strlen(om_string)) == 0) {
                         SetScheduleRemindTimes(index, json_object_get_int(val));
+                        break;
+                    }
+
+                    sprintf(om_string, "HEALTH-1/SCHEDULE-%d/TrackType\0", index + 1);
+                    if(strncmp(key, om_string, strlen(om_string)) == 0) {
+                        u8 type = json_object_get_int(val) - 1;
+                        if(true == CheckTrackType(type)) {
+                            SetScheduleTrackType(index, type);
+                        }
+                        else {
+                            AaSysLogPrint(LOGLEVEL_WRN, "get wrong TrackType %d from could", type);
+                        }
                         break;
                     }
 
@@ -354,40 +405,48 @@ bool IsParameterChanged()
     for(index = 0; index < MAX_DEPTH_PICKUP; index++) {
         if(IsPickupChanged(index)) {
             set_action = true;
-            user_log("[DBG]IsParameterChanged: Pickup[%d] change Enable:%s SelTrack:%d", 
+            user_log("[DBG]IsParameterChanged: Pickup[%d] change Enable:%s TrackType:%d SelTrack:%d", 
                     index, 
                     GetPickUpEnable(index) ? "true" : "false", 
+                    GetPickUpTrackType(index),
                     GetPickUpSelTrack(index));
         }
     }
     for(index = 0; index < MAX_DEPTH_PUTDOWN; index++) {
         if(IsPutdownChanged(index)) {
             set_action = true;
-            user_log("[DBG]IsParameterChanged: Putdown[%d] change Enable:%s RemindDelay:%d SelTrack:%d",
+            user_log("[DBG]IsParameterChanged: Putdown[%d] change Enable:%s RemindDelay:%d TrackType:%d SelTrack:%d",
                     index,
                     GetPutDownEnable(index) ? "true" : "false",
                     GetPutDownRemindDelay(index),
+                    GetPutDownTrackType(index),
                     GetPutDownSelTrack(index));
         }
     }
     for(index = 0; index < MAX_DEPTH_IMMEDIATE; index++) {
         if(IsImmediateChanged(index)) {
-            set_action = true;
-            user_log("[DBG]IsParameterChanged: Immediate[%d] change Enable:%s SelTrack:%d",
+            // this configuration do not need save
+            set_action = false;
+            user_log("[DBG]IsParameterChanged: Immediate[%d] change Enable:%s TrackType:%d SelTrack:%d",
                     index,
                     GetImmediateEnable(index) ? "true" : "false",
+                    GetImmediateTrackType(index),
                     GetImmediateSelTrack(index));
+
+            SendQuitReq();
+            SendPlayReq(GetImmediateTrackType(index), GetImmediateSelTrack(index));
         }
     }
     for(index = 0; index < MAX_DEPTH_SCHEDULE; index++) {
         if(IsScheduleChanged(index)) {
             set_action = true;
-            user_log("[DBG]IsParameterChanged: Schedule[%d] change Enable:%s Remind %2d:%2d RemindTimes:%d SelTrack:%d",
+            user_log("[DBG]IsParameterChanged: Schedule[%d] change Enable:%s Remind %2d:%2d RemindTimes:%d TrackType:%d SelTrack:%d",
                     index,
                     GetScheduleEnable(index) ? "true" : "false",
                     GetScheduleRemindHour(index),
                     GetScheduleRemindMinute(index),
                     GetScheduleRemindTimes(index),
+                    GetScheduleTrackType(index),
                     GetScheduleSelTrack(index));
         }
     }
@@ -430,7 +489,44 @@ static void SendTrackListReq(void)
     if(kNoErr != AaSysComSend(msg)) {
         AaSysLogPrint(LOGLEVEL_ERR, "API_MESSAGE_ID_TRACKLIST_REQ send failed");
     }
+
+    AaSysLogPrint(LOGLEVEL_DBG, "send TrackList request from DownStream at %s", __FILE__);
 }
+
+static void SendPlayReq(u8 t_type, u16 t_idx)
+{
+    void* msg;
+    
+    msg = AaSysComCreate(API_MESSAGE_ID_PLAY_REQ, MsgQueue_DownStream, MsgQueue_MusicHandler, sizeof(ApiPlayReq));
+    if(msg == NULL) {
+        AaSysLogPrint(LOGLEVEL_ERR, "API_MESSAGE_ID_PLAY_REQ create failed");
+        return ;
+    }
+
+    ApiPlayReq* pl = AaSysComGetPayload(msg);
+    pl->type = t_type;
+    pl->track_index = t_idx;
+
+    if(kNoErr != AaSysComSend(msg)) {
+        AaSysLogPrint(LOGLEVEL_ERR, "API_MESSAGE_ID_PLAY_REQ send failed");
+    }
+}
+
+static void SendQuitReq(void)
+{
+    void* msg;
+    
+    msg = AaSysComCreate(API_MESSAGE_ID_QUIT_REQ, MsgQueue_DownStream, MsgQueue_MusicHandler, sizeof(ApiQuitReq));
+    if(msg == NULL) {
+        AaSysLogPrint(LOGLEVEL_ERR, "API_MESSAGE_ID_QUIT_REQ create failed");
+        return ;
+    }
+
+    if(kNoErr != AaSysComSend(msg)) {
+        AaSysLogPrint(LOGLEVEL_ERR, "API_MESSAGE_ID_QUIT_REQ send failed");
+    }
+}
+
 
 // end of file
 

@@ -33,8 +33,8 @@
 #include "SocketUtils.h"
 #include "airkiss.h"
 
-//#define airkiss_log(M, ...) custom_log("AIRKISS", M, ##__VA_ARGS__)
-#define airkiss_log(M, ...)
+#define airkiss_log(M, ...) custom_log("AIRKISS", M, ##__VA_ARGS__)
+//#define airkiss_log(M, ...)
 
 #define LOCAL_UDP_PORT  12476
 #define REMOTE_UDP_PORT 12476
@@ -70,6 +70,8 @@ OSStatus airkiss_discovery_start( char *appid, char *deviceid )
   _appid = appid;
   _deviceid = deviceid;
 
+  
+
   err = mico_rtos_create_thread(NULL, MICO_APPLICATION_PRIORITY, "ak discovery", ak_discovery_thread, 0x800, NULL );
   require_noerr_string( err, exit, "ERROR: Unable to start the airkiss discovery thread." );
   _started = true;
@@ -99,6 +101,8 @@ static void ak_discovery_thread(void *arg)
   ssize_t len = 0;
   int ret;
 
+  airkiss_log("ak thread started");
+
   buf = (char*)malloc( 1024 );
   require_action( buf, exit, err = kNoMemoryErr );
   
@@ -116,21 +120,28 @@ static void ak_discovery_thread(void *arg)
 
   while(1)
   {
+//    airkiss_log("start airkiss discovery loop");
     //udp_broadcast_log( "broadcast now!" );
     FD_ZERO( &readfds );
     FD_SET( udp_fd, &readfds );
-    
+
+//    airkiss_log("before select");
     require_action( select( udp_fd + 1, &readfds, NULL, NULL, &t) >= 0, exit, err = kConnectionErr );
+//    airkiss_log("after select");
     
     /* recv wlan data, and send back */
     if( FD_ISSET( udp_fd, &readfds ) )
     {
       memset(buf, 0x0, 1024);
+//      airkiss_log("before recvfrom");
       len = recvfrom( udp_fd, buf, 1024, 0, &addr, &addr_len);
+//      airkiss_log("udp_fd recv len %d", len);
+      
       require_action( len >= 0, exit, err = kConnectionErr );
       airkiss_log("Airkiss discover request received, length=%d", len);
 
       ret = airkiss_lan_recv(buf, len, &akconf);
+      
       switch (ret){
         case AIRKISS_LAN_SSDP_REQ:
           len = 1024;

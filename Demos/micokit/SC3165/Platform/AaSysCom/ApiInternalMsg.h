@@ -107,6 +107,7 @@ typedef struct ApiPlayReq_t {
 
 // API_MESSAGE_ID_PLAY_RESP
 typedef struct ApiPlayResp_t {
+    u8   type;
     bool status;
 } ApiPlayResp;
 

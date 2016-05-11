@@ -83,7 +83,6 @@ OSStatus user_main( app_context_t * const app_context )
 
   // reset f411 and wait until it startup
   ResetF411();
-  mico_thread_msleep(500);
 
 #if 1
   MOInit();

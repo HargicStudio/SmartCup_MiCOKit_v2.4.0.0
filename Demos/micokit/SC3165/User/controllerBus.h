@@ -55,6 +55,7 @@ enum {
 bool ControllerBusInit(void);
 OSStatus ControllerBusSend(ECBusCmd cmd, unsigned char *inData, unsigned int inDataLen);
 void ResetF411(void);
+bool CheckTrackType(u8 type);
 
 
    

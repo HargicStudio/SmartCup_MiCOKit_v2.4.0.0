@@ -80,7 +80,7 @@ typedef struct SHealth_t {
 typedef struct SPickup_t {
     u16     selTrack;
     bool    enable;
-    u8      reseve1;
+    u8      type;
 } SPickup;
 
 
@@ -90,7 +90,7 @@ typedef struct SPutdown_t {
     u16     remindDelay;
     u16     selTrack;
     bool    enable;
-    u8      reseve1;
+    u8      type;
 } SPutdown;
 
 
@@ -99,7 +99,7 @@ typedef struct SPutdown_t {
 typedef struct SImmediate_t {
     u16     selTrack;
     bool    enable;
-    u8      reseve1;
+    u8      type;
 } SImmediate;
 
 
@@ -111,6 +111,7 @@ typedef struct SSchedule_t {
     u8      remindMinute;
     u8      remindTimes;
     bool    enable;
+    u8      type;
 } SSchedule;
 
 
@@ -192,12 +193,16 @@ bool IsNoDisturbingTimeChanged();
 
 void SetPickUpEnable(u8 index, bool enable);
 bool GetPickUpEnable(u8 index);
+void SetPickUpTrackType(u8 index, u8 type);
+u8 GetPickUpTrackType(u8 index);
 void SetPickUpSelTrack(u8 index, u16 track);
 u16 GetPickUpSelTrack(u8 index);
 bool IsPickupChanged(u8 index);
 
 void SetPutDownEnable(u8 index, bool enable);
 bool GetPutDownEnable(u8 index);
+void SetPutDownTrackType(u8 index, u8 type);
+u8 GetPutDownTrackType(u8 index);
 void SetPutDownSelTrack(u8 index, u16 track);
 u16 GetPutDownSelTrack(u8 index);
 void SetPutDownRemindDelay(u8 index, u16 delay);
@@ -206,12 +211,16 @@ bool IsPutdownChanged(u8 index);
 
 void SetImmediateEnable(u8 index, bool enable);
 bool GetImmediateEnable(u8 index);
+void SetImmediateTrackType(u8 index, u8 type);
+u8 GetImmediateTrackType(u8 index);
 void SetImmediateSelTrack(u8 index, u16 track);
 u16 GetImmediateSelTrack(u8 index);
 bool IsImmediateChanged(u8 index);
 
 void SetScheduleEnable(u8 index, bool enable);
 bool GetScheduleEnable(u8 index);
+void SetScheduleTrackType(u8 index, u8 type);
+u8 GetScheduleTrackType(u8 index);
 void SetScheduleSelTrack(u8 index, u16 track);
 u16 GetScheduleSelTrack(u8 index);
 void SetScheduleRemindHour(u8 index, u8 rh);

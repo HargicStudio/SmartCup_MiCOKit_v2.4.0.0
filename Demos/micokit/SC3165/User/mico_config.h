@@ -35,7 +35,7 @@
 /*--------------------------------- info -------------------------------------*/
 #define MANUFACTURER                   "Hargic Inc."
 #define SERIAL_NUMBER                  "1603152256" //"1507231145"
-#define SOFTWAREVERSION                "V0.4.18.0"
+#define SOFTWAREVERSION                "V2.5.07.0"
 #define FIRMWARE_REVISION              HARDWARE_REVISION"@"SERIAL_NUMBER" & "SOFTWAREVERSION
 
 #define DEFAULT_ROM_VERSION            FIRMWARE_REVISION
@@ -82,6 +82,11 @@
 #define MICO_CONFIG_SERVER_PORT    8000
 
 // test for airkiss discovery
-//#define AIRKISS_DISCOVERY_ENABLE
+#define AIRKISS_APP_ID  "wx6f3c20b0c8110263"
+#define AIRKISS_DEVICE_ID   "af0d9d5c"
+
+#define AIRKISS_DISCOVERY_ENABLE
+
+#define MICO_SYSTEM_DISCOVERY_ENABLE
 
  

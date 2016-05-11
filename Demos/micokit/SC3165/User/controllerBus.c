@@ -49,8 +49,11 @@ static OSStatus HandleTfStatusReq(void* msg_ptr);
 static OSStatus HandleVolumeReq(void* msg_ptr);
 static OSStatus HandleTrackNumberReq(void* msg_ptr);
 static OSStatus HandleTrackNameReq(void* msg_ptr);
+static OSStatus HandlePlayReq(void* msg_ptr);
+static OSStatus HandleQuitReq(void* msg_ptr);
 static void ControllerBusProtocolHandler(void* arg);
 static OSStatus ParseControllerBus(SCBusHeader* header, uint8_t* payload);
+static OSStatus ParseQuitResp(uint8_t* payload);
 static OSStatus ParseTFCardStatus(uint8_t* payload);
 static OSStatus ParseVolume(uint8_t* payload);
 static OSStatus ParseTrackNumber(SCBusHeader* header, uint8_t* payload);
@@ -124,6 +127,8 @@ static void ControllerBusMsgHandler(void* arg)
             case API_MESSAGE_ID_VOLUME_REQ: HandleVolumeReq(msg_ptr); break;
             case API_MESSAGE_ID_TRACKNUM_REQ: HandleTrackNumberReq(msg_ptr); break;
             case API_MESSAGE_ID_TRACKNAME_REQ: HandleTrackNameReq(msg_ptr); break;
+            case API_MESSAGE_ID_PLAY_REQ: HandlePlayReq(msg_ptr); break;
+            case API_MESSAGE_ID_QUIT_REQ: HandleQuitReq(msg_ptr); break;
             default: 
                 AaSysLogPrint(LOGLEVEL_ERR, "no message id 0x%04x", msg->msg_id); 
                 break;
@@ -180,10 +185,10 @@ static OSStatus HandleTrackNumberReq(void* msg_ptr)
 
     ControllerBusSend(CONTROLLERBUS_CMD_GETTRACKNUM, &type, sizeof(type));
 
+    AaSysLogPrint(LOGLEVEL_DBG, "send TrackNum type %d request to f411 at %s", type, __FILE__);
+
     return kNoErr;
 }
-
-#define HANDLETRACKNAME_BUFFER_LENGTH   (sizeof(u8) + sizeof(u16))
 
 static OSStatus HandleTrackNameReq(void* msg_ptr)
 {
@@ -196,12 +201,47 @@ static OSStatus HandleTrackNameReq(void* msg_ptr)
 
     ApiTrackNameReq* pl = AaSysComGetPayload(msg_ptr);
 
-    u8 buf[HANDLETRACKNAME_BUFFER_LENGTH];
+    u8 buf[sizeof(u8) + sizeof(u16)];
 
     *buf = pl->type;
     *(uint16_t*)(buf + sizeof(u8)) = pl->track_index;
 
-    ControllerBusSend(CONTROLLERBUS_CMD_GETTRQACKNAME, buf, HANDLETRACKNAME_BUFFER_LENGTH);
+    ControllerBusSend(CONTROLLERBUS_CMD_GETTRQACKNAME, buf, sizeof(u8) + sizeof(u16));
+
+    return kNoErr;
+}
+
+static OSStatus HandlePlayReq(void* msg_ptr)
+{
+    SMsgHeader* msg = (SMsgHeader*)msg_ptr;
+    if(msg->pl_size != sizeof(ApiPlayReq)) {
+        AaSysLogPrint(LOGLEVEL_ERR, "pl_size %d don't match sizeof(ApiPlayReq) %d", 
+                msg->pl_size, sizeof(ApiPlayReq));
+        return kInProgressErr;
+    }
+
+    ApiPlayReq* pl = AaSysComGetPayload(msg_ptr);
+
+    u8 buf[sizeof(u8) + sizeof(u16)];
+
+    *buf = pl->type;
+    *(u16*)(buf + sizeof(u8)) = pl->track_index;
+
+    ControllerBusSend(CONTROLLERBUS_CMD_PLAY, buf, sizeof(u8) + sizeof(u16));
+
+    return kNoErr;
+}
+
+static OSStatus HandleQuitReq(void* msg_ptr)
+{
+    SMsgHeader* msg = (SMsgHeader*)msg_ptr;
+    if(msg->pl_size != sizeof(ApiQuitReq)) {
+        AaSysLogPrint(LOGLEVEL_ERR, "pl_size %d don't match sizeof(ApiQuitReq) %d", 
+                msg->pl_size, sizeof(ApiQuitReq));
+        return kInProgressErr;
+    }
+
+    ControllerBusSend(CONTROLLERBUS_CMD_EXIT, NULL, 0);
 
     return kNoErr;
 }
@@ -308,19 +348,76 @@ static OSStatus ParseControllerBus(SCBusHeader* header, uint8_t* payload)
         case CONTROLLERBUS_CMD_PLAY: err = ParseTrackPlay(payload); break;
         case CONTROLLERBUS_CMD_VOLUME: err = ParseVolume(payload); break;
         case CONTROLLERBUS_CMD_TFSTATUS: err = ParseTFCardStatus(payload); break;
+        case CONTROLLERBUS_CMD_EXIT: err = ParseQuitResp(payload); break;
         default: user_log("[ERR]ParseControllerBus: error cmd 0x%02x", header->cmd); break;
     }
 
     return err;
 }
 
-static OSStatus ParseTrackPlay(uint8_t* payload)
+static OSStatus ParseQuitResp(uint8_t* payload)
 {
     uint8_t status = *payload;
 
     if(status != 0) {
-        user_log("[DBG]ParseTrackPlay: query play failed");
+        AaSysLogPrint(LOGLEVEL_DBG, "query play failed");
         return kGeneralErr;
+    }
+
+    void* msg;
+
+    msg = AaSysComCreate(API_MESSAGE_ID_QUIT_RESP, MsgQueue_ControllerBus, MsgQueue_MusicHandler, sizeof(ApiQuitResp));
+    if(msg == NULL) {
+        AaSysLogPrint(LOGLEVEL_ERR, "API_MESSAGE_ID_QUIT_RESP create failed");
+        return kNoMemoryErr;
+    }
+
+    ApiQuitResp* pl = AaSysComGetPayload(msg);
+
+    if(status != 0) {
+        pl->status = false;
+    }
+    else {
+        pl->status = true;
+    }
+
+    if(kNoErr != AaSysComSend(msg)) {
+        AaSysLogPrint(LOGLEVEL_ERR, "API_MESSAGE_ID_PLAY_RESP send failed");
+    }
+
+    return kNoErr;
+}
+
+static OSStatus ParseTrackPlay(uint8_t* payload)
+{
+    u8 type = *(uint8_t*)payload;
+    uint8_t status = *(uint8_t*)(payload + sizeof(uint8_t));
+
+    if(status != 0) {
+        AaSysLogPrint(LOGLEVEL_DBG, "query play failed");
+        return kGeneralErr;
+    }
+
+    void* msg;
+
+    msg = AaSysComCreate(API_MESSAGE_ID_PLAY_RESP, MsgQueue_ControllerBus, MsgQueue_MusicHandler, sizeof(ApiPlayResp));
+    if(msg == NULL) {
+        AaSysLogPrint(LOGLEVEL_ERR, "API_MESSAGE_ID_PLAY_RESP create failed");
+        return kNoMemoryErr;
+    }
+
+    ApiPlayResp* pl = AaSysComGetPayload(msg);
+
+    pl->type = type;
+    if(status != 0) {
+        pl->status = false;
+    }
+    else {
+        pl->status = true;
+    }
+
+    if(kNoErr != AaSysComSend(msg)) {
+        AaSysLogPrint(LOGLEVEL_ERR, "API_MESSAGE_ID_PLAY_RESP send failed");
     }
 
     return kNoErr;
@@ -349,6 +446,8 @@ static OSStatus ParseTrackNumber(SCBusHeader* header, uint8_t* payload)
     if(kNoErr != AaSysComSend(msg)) {
         AaSysLogPrint(LOGLEVEL_ERR, "API_MESSAGE_ID_TRACKNUM_RESP send failed");
     }
+
+    AaSysLogPrint(LOGLEVEL_DBG, "send response with type %d tracknum %d at %s", pl->type, pl->track_num, __FILE__);
 
     return kNoErr;
 }
@@ -510,6 +609,15 @@ void ResetF411(void)
     AaSysLogPrint(LOGLEVEL_INF, "f411 rest done");
 }
 
+bool CheckTrackType(u8 type)
+{
+    if(type >= TRACKTYPE_SYSTEM && type <= TRACKTYPE_WECHAT) {
+        return true;
+    }
+    else {
+        return false;
+    }
+}
 
 
 // end of file

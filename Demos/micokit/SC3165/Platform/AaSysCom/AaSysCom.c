@@ -11,6 +11,7 @@ History:
 #include "AaSysCom.h"
 #include "AaSysLog.h"
 #include <stdbool.h>
+#include <string.h>
 #include "ApiInternalMsg.h"
 
 
@@ -65,7 +66,7 @@ void* AaSysComCreate(SAaSysComMsgId msgid, SAaSysComSicad sender, SAaSysComSicad
 
     SMsgHeader* msg_ptr = malloc(sizeof(SMsgHeader) + pl_size);
     if(msg_ptr == NULL) {
-        AaSysLogPrint(LOGLEVEL_ERR, "get payload buffer failed");
+        AaSysLogPrint(LOGLEVEL_ERR, "create message 0x%04x failed", msgid);
         return NULL;
     }
 
@@ -82,6 +83,11 @@ void* AaSysComCreate(SAaSysComMsgId msgid, SAaSysComSicad sender, SAaSysComSicad
 
 void* AaSysComGetPayload(void* msg_ptr)
 {
+    if(msg_ptr == NULL) {
+        AaSysLogPrint(LOGLEVEL_ERR, "msg_ptr is NULL");
+        return NULL;
+    }
+    
     u8* msg = msg_ptr;
     return (msg + sizeof(SMsgHeader));
 }
@@ -89,6 +95,11 @@ void* AaSysComGetPayload(void* msg_ptr)
 
 OSStatus AaSysComSend(void* msg_ptr)
 {
+    if(msg_ptr == NULL) {
+        AaSysLogPrint(LOGLEVEL_ERR, "msg_ptr is NULL");
+        return kParamErr;
+    }
+    
     SMsgInternalHeader header;
     SMsgHeader* msg = (SMsgHeader*)msg_ptr;
 
@@ -124,6 +135,105 @@ OSStatus AaSysComSend(void* msg_ptr)
     return kNoErr;
 }
 
+SAaSysComSicad AaSysComGetSender(void* msg_ptr)
+{
+    if(msg_ptr == NULL) {
+        AaSysLogPrint(LOGLEVEL_ERR, "msg_ptr is NULL");
+        return MsgQueue_Unknow;
+    }
+    
+    SMsgHeader* msg = (SMsgHeader*)msg_ptr;
+    return msg->sender;
+}
+
+OSStatus AaSysComSetSender(void* msg_ptr, SAaSysComSicad sender)
+{
+    if(msg_ptr == NULL) {
+        AaSysLogPrint(LOGLEVEL_ERR, "msg_ptr is NULL");
+        return kParamErr;
+    }
+
+    SMsgHeader* msg = (SMsgHeader*)msg_ptr;
+    
+    if(sender >= MsgQueue_MAX) {
+        AaSysLogPrint(LOGLEVEL_ERR, "sender 0x%02x incorrect", sender);
+        return kParamErr;
+    }
+
+    msg->sender = sender;
+
+    return kNoErr;
+}
+
+SAaSysComSicad AaSysComGetReceiver(void* msg_ptr)
+{
+    if(msg_ptr == NULL) {
+        AaSysLogPrint(LOGLEVEL_ERR, "msg_ptr is NULL");
+        return MsgQueue_Unknow;
+    }
+    
+    SMsgHeader* msg = (SMsgHeader*)msg_ptr;
+    return msg->target;
+}
+
+OSStatus AaSysComSetReceiver(void* msg_ptr, SAaSysComSicad receiver)
+{
+    if(msg_ptr == NULL) {
+        AaSysLogPrint(LOGLEVEL_ERR, "msg_ptr is NULL");
+        return kParamErr;
+    }
+
+    SMsgHeader* msg = (SMsgHeader*)msg_ptr;
+
+    if(receiver >= MsgQueue_MAX) {
+        AaSysLogPrint(LOGLEVEL_ERR, "target 0x%02x incorrect", receiver);
+        return kParamErr;
+    }
+
+    msg->target = receiver;
+
+    return kNoErr;
+}
+
+
+OSStatus AaSysComForward(void* msg_ptr, SAaSysComSicad sender, SAaSysComSicad receiver)
+{
+    OSStatus err;
+        
+    if(msg_ptr == NULL) {
+        AaSysLogPrint(LOGLEVEL_ERR, "msg_ptr is NULL");
+        return kParamErr;
+    }
+    
+    if(sender >= MsgQueue_MAX || receiver >= MsgQueue_MAX) {
+        AaSysLogPrint(LOGLEVEL_ERR, "sender 0x%02x or receiver 0x%02x failed", sender, receiver);
+        return kParamErr;
+    }
+
+    SMsgHeader* msg = (SMsgHeader*)msg_ptr;
+
+    SMsgHeader* msg_fw = malloc(sizeof(SMsgHeader) + msg->pl_size);
+    if(msg_fw == NULL) {
+        AaSysLogPrint(LOGLEVEL_ERR, "forward message 0x%04x failed", msg->msg_id);
+        return kNoMemoryErr;
+    }
+
+    memcpy(msg_fw, msg_ptr, (sizeof(SMsgHeader) + msg->pl_size));
+    err = AaSysComSetSender(msg_fw, sender);
+    if(kNoErr != err) {
+        AaSysLogPrint(LOGLEVEL_ERR, "forward message failed when set sender");
+        return err;
+    }
+    err = AaSysComSetReceiver(msg_fw, receiver);
+    if(kNoErr != err) {
+        AaSysLogPrint(LOGLEVEL_ERR, "forward message failed when set target");
+        return err;
+    }
+
+    err = AaSysComSend(msg_fw);
+
+    return err;
+}
 
 void* AaSysComReceiveHandler(SAaSysComSicad receiver, u32 timeout)
 {
@@ -181,6 +291,7 @@ static char* AaSysComPrintThreadName(SAaSysComSicad t_id)
         case MsgQueue_DownStream: return "DownStream\0";
         case MsgQueue_DeviceHandler: return "DeviceHandler\0";
         case MsgQueue_MusicHandler: return "MusicHandler\0";
+        case MsgQueue_HealthHandler: return "HealthHandler\0";
         case MsgQueue_ControllerBus: return "ControllerBus\0";
         default: return "Unknow\0";
     }

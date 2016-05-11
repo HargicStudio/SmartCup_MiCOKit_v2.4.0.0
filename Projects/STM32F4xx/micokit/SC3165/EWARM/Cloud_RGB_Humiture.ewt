@@ -153,6 +153,9 @@
       <file>
         <name>$PROJ_DIR$\..\..\..\..\..\Demos\micokit\SC3165\Platform\AaSysLog\AaSysLog.c</name>
       </file>
+      <file>
+        <name>$PROJ_DIR$\..\..\..\..\..\Demos\micokit\SC3165\Platform\AaThread\AaThread.c</name>
+      </file>
     </group>
     <group>
       <name>User</name>
@@ -354,6 +357,12 @@
       <group>
         <name>easylink</name>
         <file>
+          <name>$PROJ_DIR$\..\..\..\..\..\MICO\system\easylink\airkiss_discovery\airkiss_discovery.c</name>
+        </file>
+        <file>
+          <name>$PROJ_DIR$\..\..\..\..\..\MICO\system\easylink\airkiss_discovery\lib_airkiss\libairkiss.a</name>
+        </file>
+        <file>
           <name>$PROJ_DIR$\..\..\..\..\..\MICO\system\easylink\system_easylink.c</name>
         </file>
         <file>
@@ -398,6 +407,9 @@
       </file>
       <file>
         <name>$PROJ_DIR$\..\..\..\..\..\MICO\system\mico_system_power_daemon.c</name>
+      </file>
+      <file>
+        <name>$PROJ_DIR$\..\..\..\..\..\MICO\system\mdns\system_discovery.c</name>
       </file>
       <file>
         <name>$PROJ_DIR$\..\..\..\..\..\MICO\system\system_factory_test.c</name>

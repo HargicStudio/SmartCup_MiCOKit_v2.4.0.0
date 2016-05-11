@@ -108,7 +108,11 @@ exit:
     /*EasyLink timeout or error*/    
     system_log("EasyLink step 1 ERROR, err: %d", err);
     easylink_success = false;
-    mico_rtos_set_semaphore(&easylink_sem);    
+    mico_rtos_set_semaphore(&easylink_sem);
+
+    if(kNoErr == mico_system_context_restore(inContext)) {
+        system_log("restore successfully");
+    }
   }
   return;
 }
@@ -219,13 +223,14 @@ exit:
 }
 
 void easylink_thread(void *inContext)
-{
+{    
   system_log_trace();
   OSStatus err = kNoErr;
   mico_Context_t *Context = inContext;
 #if ( MICO_CONFIG_MODE == CONFIG_MODE_EASYLINK_WITH_SOFTAP ) || (MICO_CONFIG_MODE == CONFIG_MODE_SOFT_AP)
   network_InitTypeDef_st wNetConfig;
 #endif
+  uint16_t start_easylink_cnt = 0;
 
   system_log("[DBG]easylink_thread: EASYLINK thread created");
 
@@ -249,12 +254,16 @@ void easylink_thread(void *inContext)
   }
 /* If use CONFIG_MODE_SOFT_AP only, skip easylink mode, establish soft ap directly */ 
 restart:
-  mico_system_delegate_config_will_start( ); 
+
+  while(easylink_success == false) {
+    mico_system_delegate_config_will_start( ); 
 #if ( MICO_CONFIG_MODE != CONFIG_MODE_SOFT_AP ) 
-  system_log("Start easylink combo mode");
-  micoWlanStartEasyLinkPlus(EasyLink_TimeOut/1000);
-  mico_rtos_get_semaphore(&easylink_sem, MICO_WAIT_FOREVER);
+    system_log("Start easylink combo mode in %d so far", start_easylink_cnt++);
+    micoWlanStartEasyLinkPlus(EasyLink_TimeOut/1000);
+    mico_rtos_get_semaphore(&easylink_sem, MICO_WAIT_FOREVER);
 #endif
+  }
+
 
   /* EasyLink Success */
   if( easylink_success == true ){
