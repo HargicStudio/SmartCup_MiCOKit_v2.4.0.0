@@ -4,7 +4,7 @@
 #include "mico_system.h"
 
 
-#define DEFAULT_OTA_AP "MICO_OTA_AP"
+#define DEFAULT_OTA_AP "helloted" //"MICO_OTA_AP"
 #define DEFAULT_OTA_NETMASK "255.0.0.0"
 #define DEFAULT_OTA_SERVER "10.0.0.2"
 #define UDP_PORT 20000

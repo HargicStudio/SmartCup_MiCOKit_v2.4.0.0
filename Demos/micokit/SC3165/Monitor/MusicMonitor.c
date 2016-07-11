@@ -39,6 +39,11 @@ static u8 _track_type_index = 0;
 static u16 _track_number_index = 0;
 static u16 _track_number_all = 0;
 
+static char _track_name_buf[1024];
+static u16 _track_name_idx = 0;
+static u16 _track_name_len = 0;
+
+
 
 static void MusicHandler(void* arg);
 static OSStatus HandleVolumeReq(void* msg_ptr);
@@ -124,6 +129,9 @@ static void MusicHandler(void* arg)
                         SendTrackNumberReq(_track_type_index);
                     }
                     // else, all track type have been query
+                    else {
+                        SendJsonTrackName(app_context, _track_name_buf);
+                    }
                 }
                 break;
             case API_MESSAGE_ID_PLAY_REQ:
@@ -284,6 +292,9 @@ static OSStatus HandleTrackNumResp(void* msg_ptr)
 
     _track_number_all = pl->track_num;
     _track_number_index = 0;
+
+    _track_name_idx = 0;
+    _track_name_len = 0;
     
     AaSysLogPrint(LOGLEVEL_DBG, "get track_type %d track_number %d at %s", pl->type, pl->track_num, __FILE__);
 
@@ -319,7 +330,8 @@ static OSStatus HandleTrackNameResp(void* msg_ptr, app_context_t *app_context)
     sprintf(track.trackName, "%s\0", pl->name);
 
     // upload to cloud
-    SendJsonTrack(app_context, pl->type, &track);
+    FmtStringJsonTrack(app_context, pl->type, &track, (_track_name_buf + _track_name_idx), &_track_name_len);
+    _track_name_idx += _track_name_len;
 
     return kNoErr;
 }

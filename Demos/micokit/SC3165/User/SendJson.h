@@ -32,7 +32,9 @@ bool SendJsonPutdown(app_context_t *arg);
 bool SendJsonImmediate(app_context_t *arg);
 bool SendJsonSchedule(app_context_t *arg);
 bool SendJsonAppointment(app_context_t *arg);
-bool SendJsonTrack(app_context_t *arg, u8 type, STrack* track);
+bool FmtStringJsonTrack(app_context_t *arg, u8 type, STrack* track, char* cp_buf, u16* cp_len);
+bool SendJsonTrackName(app_context_t *arg, char* string);
+
 
    
 #ifdef __cplusplus

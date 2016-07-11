@@ -169,8 +169,8 @@ int application_start(void)
        mico_context->flashContentInRam.micoSystemConfig.configured == unConfigured){
 //         mico_thread_msleep(100);
 
-          app_log("NO wifi configuration, continue to run");
-          break;
+//          app_log("NO wifi configuration, continue to run");
+//          break;
        }
     else{
       break;

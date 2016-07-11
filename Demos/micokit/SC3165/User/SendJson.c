@@ -354,12 +354,13 @@ bool SendJsonAppointment(app_context_t *arg)
 }
 */
 
-bool SendJsonTrack(app_context_t *arg, u8 type, STrack* track)
+bool FmtStringJsonTrack(app_context_t *arg, u8 type, STrack* track, char* cp_buf, u16* cp_len)
 {
     bool ret;
     json_object *send_json_object = NULL;
     char om_name[TRACKNAME_MAX_LENGTH];
     char om_string[64];
+    char* cp_tmp = NULL;
 
     if(!arg->appStatus.fogcloudStatus.isCloudConnected) {
         AaSysLogPrint(LOGLEVEL_WRN, "cloud disconnected, upload failed");
@@ -368,7 +369,7 @@ bool SendJsonTrack(app_context_t *arg, u8 type, STrack* track)
 
     send_json_object = json_object_new_object();
     if(NULL == send_json_object){
-        user_log("[ERR]SendJsonTrack: create json object error");
+        user_log("[ERR]%s: create json object error", __FUNCTION__);
     }
     else {
         if(type == TRACKTYPE_SYSTEM) {
@@ -383,7 +384,17 @@ bool SendJsonTrack(app_context_t *arg, u8 type, STrack* track)
         sprintf(om_name, "%s\0", track->trackName);
         json_object_object_add(send_json_object, om_string, json_object_new_string(om_name));
 
-        ret = SendJson(arg, send_json_object);
+        cp_tmp = (char*)json_object_to_json_string(send_json_object);
+        if(NULL == cp_tmp) {
+            user_log("[ERR]%s: create upload data string error", __FUNCTION__);
+        }
+        else {
+            *cp_len = strlen(cp_tmp);
+            memcpy(cp_buf, cp_tmp, *cp_len);
+            user_log("[DBG]%s: change fmt success, %s", __FUNCTION__, cp_tmp);
+
+            ret = true;
+        }
     }
 
     // free json object memory
@@ -393,6 +404,32 @@ bool SendJsonTrack(app_context_t *arg, u8 type, STrack* track)
     return ret;
 }
 
+bool SendJsonTrackName(app_context_t *arg, char* string)
+{
+    bool ret;
+    json_object *send_json_object = NULL;
+
+    if(!arg->appStatus.fogcloudStatus.isCloudConnected) {
+        AaSysLogPrint(LOGLEVEL_WRN, "cloud disconnected, upload failed");
+        return false;
+    }
+  
+    send_json_object = json_object_new_object();
+    if(NULL == send_json_object){
+        user_log("[ERR]%s: create json object error", __FUNCTION__);
+    }
+    else {
+        json_object_object_add(send_json_object, "MUSIC-1/TrackName", json_object_new_string(string));
+        
+        ret = SendJson(arg, send_json_object);
+    }
+
+    // free json object memory
+    json_object_put(send_json_object);
+    send_json_object = NULL;
+
+    return ret;
+}
 
 
 // end of file

@@ -16,18 +16,13 @@ History:
 #endif 
 
 
-typedef struct SAaThread_t {
-    struct SAaThread_t*     next;
-    // mico used
-    char*                   name;
-    mico_thread_t           thread;    
-    mico_thread_function_t  function;
-    void*                   arg;
-    uint32_t                stack_size;
-    uint8_t                 priority;
-    //
-    uint8_t                 t_id;
-} SAaThread;
+#include "AaPlatform.h"
+
+
+OSStatus AaThreadCreate(mico_thread_t* thread, uint8_t priority, const char* name, mico_thread_function_t function, uint32_t stack_size, void* arg);
+OSStatus AaThreadDelete(mico_thread_t* thread);
+u8 AaThreadGetCurrentId();
+void AaThreadPrintListTbl(void);
 
 
 
